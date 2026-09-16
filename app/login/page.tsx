@@ -1,19 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, Lock } from "lucide-react";
+
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Card } from "@/src/components/ui/card";
+
 import { loginSchema, type LoginFormValues } from "@/src/lib/validation/auth";
+
 import { login } from "./actions";
 
+/* =========================================================
+   LOGIN PAGE
+========================================================= */
+
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+/* =========================================================
+   LOGIN FORM
+
+   useSearchParams() lives here so it is inside Suspense.
+========================================================= */
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [formError, setFormError] = useState<string | null>(null);
 
   const {
@@ -26,6 +48,7 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginFormValues) => {
     setFormError(null);
+
     const result = await login(values);
 
     if (result.error) {
@@ -33,8 +56,31 @@ export default function LoginPage() {
       return;
     }
 
-    const redirectTo = searchParams.get("redirectTo") || "/admin";
-    router.push(redirectTo);
+    /*
+     * Example:
+     *
+     * /login?redirectTo=/admin/customers
+     *
+     * After login:
+     * → /admin/customers
+     */
+
+    const requestedRedirect = searchParams.get("redirectTo");
+
+    /*
+     * Only allow internal application paths.
+     *
+     * This prevents values such as:
+     * https://example.com
+     * //example.com
+     */
+
+    const redirectTo =
+      requestedRedirect?.startsWith("/") && !requestedRedirect.startsWith("//")
+        ? requestedRedirect
+        : "/admin";
+
+    router.replace(redirectTo);
     router.refresh();
   };
 
@@ -47,6 +93,7 @@ export default function LoginPage() {
       <Card variant="elevated" padding="lg" className="w-full max-w-sm">
         <div className="mb-6 flex flex-col gap-1">
           <h1 className="text-h2">Optimus Megatron Cars</h1>
+
           <p className="text-body-sm text-text-muted">Admin sign in</p>
         </div>
 
@@ -63,6 +110,7 @@ export default function LoginPage() {
             error={errors.email?.message}
             {...register("email")}
           />
+
           <Input
             label="Password"
             type="password"
@@ -87,6 +135,33 @@ export default function LoginPage() {
             Sign In
           </Button>
         </form>
+      </Card>
+    </main>
+  );
+}
+
+/* =========================================================
+   SUSPENSE FALLBACK
+========================================================= */
+
+function LoginLoading() {
+  return (
+    <main
+      className="flex min-h-screen items-center justify-center bg-base p-4"
+      aria-busy="true"
+    >
+      <Card variant="elevated" padding="lg" className="w-full max-w-sm">
+        <div className="mb-6 flex flex-col gap-1">
+          <h1 className="text-h2">Optimus Megatron Cars</h1>
+
+          <p className="text-body-sm text-text-muted">Admin sign in</p>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="h-10 animate-pulse rounded-md bg-card-hover" />
+          <div className="h-10 animate-pulse rounded-md bg-card-hover" />
+          <div className="mt-2 h-12 animate-pulse rounded-lg bg-card-hover" />
+        </div>
       </Card>
     </main>
   );
