@@ -15,9 +15,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 const THEME_CHANGE_EVENT = "omc-theme-change";
 
 function getThemeSnapshot(): Theme {
-  return document.documentElement.classList.contains("light")
-    ? "light"
-    : "dark";
+  return document.documentElement.classList.contains("light") ? "light" : "dark";
 }
 
 function getServerThemeSnapshot(): Theme {
@@ -51,11 +49,7 @@ function subscribeToTheme(callback: () => void) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const theme = useSyncExternalStore(
-    subscribeToTheme,
-    getThemeSnapshot,
-    getServerThemeSnapshot,
-  );
+  const theme = useSyncExternalStore(subscribeToTheme, getThemeSnapshot, getServerThemeSnapshot);
 
   const setTheme = (next: Theme) => {
     localStorage.setItem(THEME_STORAGE_KEY, next);

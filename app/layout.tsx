@@ -14,8 +14,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Optimus Megatron Cars — Admin",
-  description:
-    "Admin dashboard for Optimus Megatron Cars, UAE premium & luxury automotive marketplace.",
+  description: "Admin dashboard for Optimus Megatron Cars, UAE premium & luxury automotive marketplace.",
 };
 
 const themeInitScript = `
@@ -42,7 +41,7 @@ export default function RootLayout({
       <body>
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-[#0b1220] focus:shadow-soft-lg"
+          className="focus:bg-primary focus:shadow-soft-lg sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-md focus:px-4 focus:py-2 focus:text-[#0b1220]"
         >
           Skip to main content
         </a>

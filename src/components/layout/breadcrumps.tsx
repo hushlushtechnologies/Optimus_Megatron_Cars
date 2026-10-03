@@ -27,25 +27,20 @@ export function PageHeading() {
         </IconButton>
       )}
       <div className="min-w-0">
-        <h1 className="truncate text-h3 lg:text-h2">{title}</h1>
+        <h1 className="text-h3 lg:text-h2 truncate">{title}</h1>
         <nav aria-label="Breadcrumb" className="hidden sm:block">
-          <ol className="flex items-center gap-1.5 text-caption">
+          <ol className="text-caption flex items-center gap-1.5">
             {crumbs.map((crumb, index) => {
               const isLast = index === crumbs.length - 1;
               return (
                 <li key={crumb.href} className="flex items-center gap-1.5">
-                  {index > 0 && (
-                    <ChevronRight className="size-3" aria-hidden="true" />
-                  )}
+                  {index > 0 && <ChevronRight className="size-3" aria-hidden="true" />}
                   {isLast ? (
                     <span aria-current="page" className="text-text-muted">
                       {crumb.label}
                     </span>
                   ) : (
-                    <Link
-                      href={crumb.href}
-                      className="transition-colors hover:text-text-primary"
-                    >
+                    <Link href={crumb.href} className="hover:text-text-primary transition-colors">
                       {crumb.label}
                     </Link>
                   )}

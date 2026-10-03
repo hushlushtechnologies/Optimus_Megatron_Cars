@@ -35,20 +35,9 @@ export default function HomePage() {
           placeholder="admin@optimusmegatron.ae"
           leftIcon={<Mail className="size-4" />}
         />
-        <Input
-          label="Search"
-          placeholder="Search inventory..."
-          leftIcon={<Search className="size-4" />}
-        />
-        <Input
-          label="With error"
-          defaultValue="bad-value"
-          error="This field is required"
-        />
-        <Textarea
-          label="Internal note"
-          placeholder="Add a note about this customer..."
-        />
+        <Input label="Search" placeholder="Search inventory..." leftIcon={<Search className="size-4" />} />
+        <Input label="With error" defaultValue="bad-value" error="This field is required" />
+        <Textarea label="Internal note" placeholder="Add a note about this customer..." />
       </Card>
 
       <Divider label="STATUS BADGES" />

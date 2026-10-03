@@ -48,11 +48,7 @@ export function GlobalSearch() {
                 leftIcon={<Search className="size-4" />}
               />
             </div>
-            <IconButton
-              aria-label="Close search"
-              variant="ghost"
-              onClick={() => setIsMobileOpen(false)}
-            >
+            <IconButton aria-label="Close search" variant="ghost" onClick={() => setIsMobileOpen(false)}>
               <X className="size-4" />
             </IconButton>
           </motion.div>

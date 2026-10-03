@@ -4,11 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import {
-  Dropdown,
-  DropdownTrigger,
-  DropdownContent,
-} from "@/src/components/ui/dropdown";
+import { Dropdown, DropdownTrigger, DropdownContent } from "@/src/components/ui/dropdown";
 import { IconButton } from "@/src/components/ui/icon-button";
 import { cn } from "@/src/lib/utils/cn";
 
@@ -67,7 +63,7 @@ export function NotificationsDropdown() {
           {unreadCount > 0 && (
             <span
               aria-hidden="true"
-              className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-[#0b1220]"
+              className="bg-primary absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-semibold text-[#0b1220]"
             >
               {unreadCount}
             </span>
@@ -76,18 +72,12 @@ export function NotificationsDropdown() {
       </DropdownTrigger>
 
       <DropdownContent className="w-80">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <p className="text-body-sm font-medium text-text-primary">
-            Notifications
-          </p>
+        <div className="border-border flex items-center justify-between border-b px-4 py-3">
+          <p className="text-body-sm text-text-primary font-medium">Notifications</p>
           <button
             type="button"
-            onClick={() =>
-              setNotifications((prev) =>
-                prev.map((n) => ({ ...n, isRead: true })),
-              )
-            }
-            className="flex items-center gap-1 text-caption text-primary-text hover:text-primary-hover"
+            onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
+            className="text-caption text-primary-text hover:text-primary-hover flex items-center gap-1"
           >
             <CheckCheck className="size-3.5" />
             Mark all as read
@@ -96,12 +86,8 @@ export function NotificationsDropdown() {
 
         <ul className="max-h-80 overflow-y-auto">
           {notifications.slice(0, 4).map((notification) => (
-            <li
-              key={notification.id}
-              role="menuitem"
-              className="border-b border-border last:border-0"
-            >
-              <div className="flex gap-3 px-4 py-3 hover:bg-card-hover">
+            <li key={notification.id} role="menuitem" className="border-border border-b last:border-0">
+              <div className="hover:bg-card-hover flex gap-3 px-4 py-3">
                 <span
                   aria-hidden="true"
                   className={cn(
@@ -110,13 +96,9 @@ export function NotificationsDropdown() {
                   )}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-body-sm text-text-primary">
-                    {notification.title}
-                  </p>
-                  <p className="truncate text-caption">
-                    {notification.description}
-                  </p>
-                  <p className="mt-0.5 text-caption text-text-subtle">
+                  <p className="text-body-sm text-text-primary">{notification.title}</p>
+                  <p className="text-caption truncate">{notification.description}</p>
+                  <p className="text-caption text-text-subtle mt-0.5">
                     {formatDistanceToNow(notification.createdAt, {
                       addSuffix: true,
                     })}
@@ -129,7 +111,7 @@ export function NotificationsDropdown() {
 
         <Link
           href="/admin/notifications"
-          className="block px-4 py-3 text-center text-body-sm text-primary-text hover:bg-card-hover"
+          className="text-body-sm text-primary-text hover:bg-card-hover block px-4 py-3 text-center"
         >
           View all notifications
         </Link>

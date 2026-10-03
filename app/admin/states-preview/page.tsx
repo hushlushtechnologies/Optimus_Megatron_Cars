@@ -41,10 +41,7 @@ export default function StatesPreviewPage() {
       </Card>
       <Divider label="SUCCESS" />
       <Card>
-        <SuccessState
-          title="Reservation confirmed"
-          description="AED 25000 token payment received."
-        />
+        <SuccessState title="Reservation confirmed" description="AED 25000 token payment received." />
       </Card>
       <Divider label="LOADING" />
       <Card>

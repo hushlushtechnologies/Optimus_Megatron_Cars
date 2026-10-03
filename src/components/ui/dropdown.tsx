@@ -57,11 +57,7 @@ export function Dropdown({ children }: { children: ReactNode }) {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target;
 
-      if (
-        target instanceof Node &&
-        containerRef.current &&
-        !containerRef.current.contains(target)
-      ) {
+      if (target instanceof Node && containerRef.current && !containerRef.current.contains(target)) {
         setIsOpen(false);
       }
     }
@@ -99,11 +95,7 @@ export function Dropdown({ children }: { children: ReactNode }) {
   );
 }
 
-export function DropdownTrigger({
-  children,
-}: {
-  children: ReactElement<DropdownTriggerChildProps>;
-}) {
+export function DropdownTrigger({ children }: { children: ReactElement<DropdownTriggerChildProps> }) {
   const { isOpen, setIsOpen, triggerId, panelId } = useDropdownContext();
 
   const originalOnClick = children.props.onClick;

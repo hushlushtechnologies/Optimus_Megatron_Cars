@@ -88,7 +88,7 @@ function LoginForm() {
     <main
       id="main-content"
       tabIndex={-1}
-      className="flex min-h-screen items-center justify-center bg-base p-4"
+      className="bg-base flex min-h-screen items-center justify-center p-4"
     >
       <Card variant="elevated" padding="lg" className="w-full max-w-sm">
         <div className="mb-6 flex flex-col gap-1">
@@ -97,11 +97,7 @@ function LoginForm() {
           <p className="text-body-sm text-text-muted">Admin sign in</p>
         </div>
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col gap-4"
-          noValidate
-        >
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
           <Input
             label="Email"
             type="email"
@@ -126,12 +122,7 @@ function LoginForm() {
             </p>
           )}
 
-          <Button
-            type="submit"
-            size="lg"
-            isLoading={isSubmitting}
-            className="mt-2"
-          >
+          <Button type="submit" size="lg" isLoading={isSubmitting} className="mt-2">
             Sign In
           </Button>
         </form>
@@ -146,10 +137,7 @@ function LoginForm() {
 
 function LoginLoading() {
   return (
-    <main
-      className="flex min-h-screen items-center justify-center bg-base p-4"
-      aria-busy="true"
-    >
+    <main className="bg-base flex min-h-screen items-center justify-center p-4" aria-busy="true">
       <Card variant="elevated" padding="lg" className="w-full max-w-sm">
         <div className="mb-6 flex flex-col gap-1">
           <h1 className="text-h2">Optimus Megatron Cars</h1>
@@ -158,9 +146,9 @@ function LoginLoading() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <div className="h-10 animate-pulse rounded-md bg-card-hover" />
-          <div className="h-10 animate-pulse rounded-md bg-card-hover" />
-          <div className="mt-2 h-12 animate-pulse rounded-lg bg-card-hover" />
+          <div className="bg-card-hover h-10 animate-pulse rounded-md" />
+          <div className="bg-card-hover h-10 animate-pulse rounded-md" />
+          <div className="bg-card-hover mt-2 h-12 animate-pulse rounded-lg" />
         </div>
       </Card>
     </main>

@@ -6,35 +6,26 @@ export interface DividerProps {
   className?: string;
 }
 
-export function Divider({
-  orientation = "horizontal",
-  label,
-  className,
-}: DividerProps) {
+export function Divider({ orientation = "horizontal", label, className }: DividerProps) {
   if (orientation === "vertical") {
     return (
       <div
         role="separator"
         aria-orientation="vertical"
-        className={cn("w-px self-stretch bg-border", className)}
+        className={cn("bg-border w-px self-stretch", className)}
       />
     );
   }
 
   if (label) {
     return (
-      <div
-        role="separator"
-        className={cn("flex items-center gap-3 text-label", className)}
-      >
-        <span className="h-px flex-1 bg-border" />
+      <div role="separator" className={cn("text-label flex items-center gap-3", className)}>
+        <span className="bg-border h-px flex-1" />
         {label}
-        <span className="h-px flex-1 bg-border" />
+        <span className="bg-border h-px flex-1" />
       </div>
     );
   }
 
-  return (
-    <div role="separator" className={cn("h-px w-full bg-border", className)} />
-  );
+  return <div role="separator" className={cn("bg-border h-px w-full", className)} />;
 }

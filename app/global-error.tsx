@@ -1,11 +1,6 @@
 "use client";
 
-export default function GlobalError({
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <html lang="en">
       <body
@@ -27,12 +22,8 @@ export default function GlobalError({
             textAlign: "center",
           }}
         >
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 600 }}>
-            Something went wrong
-          </h1>
-          <p style={{ color: "#91a2c0" }}>
-            The application hit an unexpected error.
-          </p>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 600 }}>Something went wrong</h1>
+          <p style={{ color: "#91a2c0" }}>The application hit an unexpected error.</p>
           <button
             onClick={reset}
             style={{

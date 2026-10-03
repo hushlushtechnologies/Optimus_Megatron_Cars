@@ -7,11 +7,7 @@ import { logout } from "@/app/admin/log-out-actions";
 export function SignOutButton() {
   return (
     <form action={logout}>
-      <Button
-        type="submit"
-        variant="outline"
-        leftIcon={<LogOut className="size-4" />}
-      >
+      <Button type="submit" variant="outline" leftIcon={<LogOut className="size-4" />}>
         Sign Out
       </Button>
     </form>

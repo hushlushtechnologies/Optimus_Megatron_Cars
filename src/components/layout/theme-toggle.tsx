@@ -10,9 +10,7 @@ export function ThemeToggle() {
 
   return (
     <IconButton
-      aria-label={
-        theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-      }
+      aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       variant="ghost"
       onClick={toggleTheme}
       className="overflow-hidden"
@@ -26,11 +24,7 @@ export function ThemeToggle() {
           transition={{ duration: 0.18 }}
           className="inline-flex"
         >
-          {theme === "dark" ? (
-            <Moon className="size-4" />
-          ) : (
-            <Sun className="size-4" />
-          )}
+          {theme === "dark" ? <Moon className="size-4" /> : <Sun className="size-4" />}
         </motion.span>
       </AnimatePresence>
     </IconButton>

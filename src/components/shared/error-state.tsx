@@ -12,13 +12,7 @@ interface ErrorStateProps {
   onRetry?: () => void;
 }
 
-export function ErrorState({
-  title,
-  description,
-  icon,
-  variant = "generic",
-  onRetry,
-}: ErrorStateProps) {
+export function ErrorState({ title, description, icon, variant = "generic", onRetry }: ErrorStateProps) {
   const isNetwork = variant === "network";
 
   return (
@@ -29,10 +23,8 @@ export function ErrorState({
         tone="danger"
       />
       <div className="max-w-sm">
-        <h3 className="text-h3">
-          {title ?? (isNetwork ? "Connection issue" : "Something went wrong")}
-        </h3>
-        <p className="mt-1 text-body-sm text-text-muted">
+        <h3 className="text-h3">{title ?? (isNetwork ? "Connection issue" : "Something went wrong")}</h3>
+        <p className="text-body-sm text-text-muted mt-1">
           {description ??
             (isNetwork
               ? "Check your internet connection and try again."

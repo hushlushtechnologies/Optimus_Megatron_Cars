@@ -1,44 +1,143 @@
-import { forwardRef, useId } from "react";
+import {
+  forwardRef,
+  useId,
+  type TextareaHTMLAttributes,
+} from "react";
+
+import { AlertCircle } from "lucide-react";
 import { cn } from "@/src/lib/utils/cn";
 
-export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+export interface TextareaProps
+  extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   error?: string;
+  hint?: string;
+  showCharacterCount?: boolean;
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, label, error, id, rows = 4, ...props }, ref) => {
+  (
+    {
+      className,
+      label,
+      error,
+      hint,
+      id,
+      rows = 4,
+      required,
+      disabled,
+      maxLength,
+      showCharacterCount = false,
+      value,
+      defaultValue,
+      ...props
+    },
+    ref,
+  ) => {
     const generatedId = useId();
     const textareaId = id ?? generatedId;
 
+    const descriptionId = error
+      ? `${textareaId}-error`
+      : hint
+        ? `${textareaId}-hint`
+        : undefined;
+
+    const textValue = value ?? defaultValue ?? "";
+    const characterCount =
+      typeof textValue === "string" || typeof textValue === "number"
+        ? String(textValue).length
+        : 0;
+
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className="flex w-full flex-col gap-1.5">
+        {/* Label */}
         {label && (
-          <label htmlFor={textareaId} className="text-label">
-            {label}
+          <label
+            htmlFor={textareaId}
+            className="flex items-center gap-1 text-label"
+          >
+            <span>{label}</span>
+
+            {required && (
+              <>
+                <span className="text-danger" aria-hidden="true">
+                  *
+                </span>
+                <span className="sr-only">Required</span>
+              </>
+            )}
           </label>
         )}
+
+        {/* Textarea */}
         <textarea
           ref={ref}
           id={textareaId}
           rows={rows}
-          aria-invalid={!!error}
-          aria-describedby={error ? `${textareaId}-error` : undefined}
+          required={required}
+          disabled={disabled}
+          maxLength={maxLength}
+          value={value}
+          defaultValue={defaultValue}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={descriptionId}
           className={cn(
-            "w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-body text-text-primary placeholder:text-text-subtle transition-colors",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary",
-            error && "border-red-500 focus-visible:ring-red-500",
+            "min-h-24 w-full resize-y rounded-md border border-border bg-card px-3 py-2.5 text-sm leading-6 text-text-primary",
+            "placeholder:text-xs placeholder:text-text-subtle",
+            "transition-[border-color,background-color,box-shadow] duration-150",
+            "hover:border-text-subtle/50",
+            "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10",
+            "disabled:cursor-not-allowed disabled:resize-none disabled:bg-card-hover disabled:text-text-subtle disabled:opacity-60",
+            error && "border-danger focus:border-danger focus:ring-danger/10",
             className,
           )}
           {...props}
         />
-        {error && (
-          <p id={`${textareaId}-error`} className="text-body-sm text-red-500">
-            {error}
-          </p>
-        )}
+
+        {/* Bottom information */}
+        <div
+          className={cn(
+            "flex items-start gap-3",
+            (hint || error) && showCharacterCount
+              ? "justify-between"
+              : showCharacterCount
+                ? "justify-end"
+                : "justify-start",
+          )}
+        >
+          {error ? (
+            <p
+              id={`${textareaId}-error`}
+              role="alert"
+              className="flex min-w-0 items-center gap-1.5 text-body-sm text-danger"
+            >
+              <AlertCircle
+                className="size-3.5 shrink-0"
+                aria-hidden="true"
+              />
+
+              <span>{error}</span>
+            </p>
+          ) : hint ? (
+            <p
+              id={`${textareaId}-hint`}
+              className="min-w-0 text-caption text-text-subtle"
+            >
+              {hint}
+            </p>
+          ) : null}
+
+          {showCharacterCount && (
+            <span className="ml-auto shrink-0 text-caption tabular-nums text-text-subtle">
+              {characterCount}
+              {maxLength ? ` / ${maxLength}` : ""}
+            </span>
+          )}
+        </div>
       </div>
     );
   },
 );
+
 Textarea.displayName = "Textarea";

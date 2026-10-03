@@ -1,59 +1,142 @@
-import { forwardRef, useId } from "react";
+import {
+  forwardRef,
+  useId,
+  type InputHTMLAttributes,
+  type ReactNode,
+} from "react";
+
+import { AlertCircle } from "lucide-react";
 import { cn } from "@/src/lib/utils/cn";
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  required?: boolean;
   error?: string;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  leftIcon?: ReactNode;
+  rightIcon?: ReactNode;
+  hint?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, leftIcon, rightIcon, id, ...props }, ref) => {
+  (
+    {
+      className,
+      label,
+      required,
+      error,
+      leftIcon,
+      rightIcon,
+      hint,
+      id,
+      disabled,
+      ...props
+    },
+    ref,
+  ) => {
     const generatedId = useId();
     const inputId = id ?? generatedId;
 
+    const descriptionId = error
+      ? `${inputId}-error`
+      : hint
+        ? `${inputId}-hint`
+        : undefined;
+
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className="flex w-full flex-col gap-1.5">
+        {/* Label */}
         {label && (
-          <label htmlFor={inputId} className="text-label">
-            {label}
+          <label
+            htmlFor={inputId}
+            className="flex items-center gap-1 text-label"
+          >
+            <span>{label}</span>
+
+            {required && (
+              <>
+                <span className="text-danger" aria-hidden="true">
+                  *
+                </span>
+                <span className="sr-only">Required</span>
+              </>
+            )}
           </label>
         )}
+
+        {/* Input */}
         <div className="relative flex items-center">
           {leftIcon && (
-            <span className="pointer-events-none absolute left-3 text-text-muted">
+            <span
+              className={cn(
+                "pointer-events-none absolute left-3 flex size-4 items-center justify-center text-text-muted",
+                error && "text-danger",
+              )}
+              aria-hidden="true"
+            >
               {leftIcon}
             </span>
           )}
+
           <input
             ref={ref}
             id={inputId}
-            aria-invalid={!!error}
-            aria-describedby={error ? `${inputId}-error` : undefined}
+            required={required}
+            disabled={disabled}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={descriptionId}
             className={cn(
-              "h-10 w-full rounded-full border border-border bg-card text-sm text-text-primary placeholder:text-text-subtle placeholder:text-xs transition-colors",
-              "focus-visible:outline-none  focus-visible:ring-primary focus-visible:border-primary",
-              leftIcon ? "pl-9" : "pl-3",
-              rightIcon ? "pr-9" : "pr-3",
-              error && "border-danger focus-visible:ring-danger",
+              "h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-text-primary",
+              "placeholder:text-xs placeholder:text-text-subtle",
+              "transition-[border-color,background-color,box-shadow] duration-150",
+              "hover:border-text-subtle/50",
+              "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10",
+              "disabled:cursor-not-allowed disabled:bg-card-hover disabled:text-text-subtle disabled:opacity-60",
+              leftIcon && "pl-9",
+              rightIcon && "pr-9",
+              error && [
+                "border-danger",
+                "focus:border-danger",
+                "focus:ring-danger/10",
+              ],
               className,
             )}
             {...props}
           />
+
           {rightIcon && (
-            <span className="pointer-events-none absolute right-3 text-text-muted">
+            <span
+              className={cn(
+                "pointer-events-none absolute right-3 flex size-4 items-center justify-center text-text-muted",
+                error && "text-danger",
+              )}
+              aria-hidden="true"
+            >
               {rightIcon}
             </span>
           )}
         </div>
-        {error && (
-          <p id={`${inputId}-error`} className="text-body-sm text-danger">
-            {error}
+
+        {/* Error */}
+        {error ? (
+          <p
+            id={`${inputId}-error`}
+            role="alert"
+            className="flex items-center gap-1.5 text-body-sm text-danger"
+          >
+            <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
+            <span>{error}</span>
           </p>
-        )}
+        ) : hint ? (
+          <p
+            id={`${inputId}-hint`}
+            className="text-caption text-text-subtle"
+          >
+            {hint}
+          </p>
+        ) : null}
       </div>
     );
   },
 );
+
 Input.displayName = "Input";

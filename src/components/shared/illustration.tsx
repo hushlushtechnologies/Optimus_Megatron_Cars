@@ -48,11 +48,7 @@ export function Illustration({
   return (
     <div
       aria-hidden="true"
-      className={cn(
-        "flex size-20 items-center justify-center rounded-full",
-        toneClasses[tone],
-        className,
-      )}
+      className={cn("flex size-20 items-center justify-center rounded-full", toneClasses[tone], className)}
     >
       <FallbackIcon className="size-9" />
     </div>

@@ -26,9 +26,11 @@
   --omc-success: #32b769;
   --omc-warning: #e3a008;
   --omc-danger: #e5484d;
+  --omc-info: #4d8fd8;
 
+  --omc-status-text: var(--omc-status-raw, currentColor);
   /* Glass surfaces (dark) */
-  --omc-glass-bg: rgba(5, 13, 36, 0.72);
+  --omc-glass-bg: rgba(5, 13, 36, 0.5);
   --omc-glass-border: rgba(255, 255, 255, 0.08);
 
   /* Elevation highlight (dark cards get a faint top edge) */
@@ -39,6 +41,17 @@
   --sidebar-card: #050d24;
   --sidebar-hover: #0b1733;
   --sidebar-active: #111f42;
+
+  --omc-gradient-primary: linear-gradient(135deg, #f6df8d 0%, #d4af37 38%, #b88a1d 72%, #8f6713 100%);
+
+  --omc-gradient-secondary: linear-gradient(135deg, #132755 0%, #0b1938 42%, #071229 72%, #050b1b 100%);
+
+  --omc-gradient-ghost: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.065) 0%,
+    rgba(255, 255, 255, 0.028) 48%,
+    rgba(255, 255, 255, 0.012) 100%
+  );
 }
 
 .light {
@@ -55,11 +68,23 @@
   --omc-success: #32b769;
   --omc-warning: #e3a008;
   --omc-danger: #e5484d;
+  --omc-info: #3d77ba;
 
-  --omc-glass-bg: rgba(255, 255, 255, 0.72);
-  --omc-glass-border: rgba(11, 18, 32, 0.06);
-
+  --omc-glass-bg: rgba(255, 255, 255, 0.6);
+  --omc-glass-border: rgba(11, 18, 32, 0.07);
+  --omc-status-text: color-mix(in srgb, var(--omc-status-raw, currentColor) 60%, black);
   --omc-elevation-highlight: rgba(11, 18, 32, 0.03);
+
+  --omc-gradient-primary: linear-gradient(135deg, #e2c55d 0%, #bd9630 45%, #9b7520 100%);
+
+  --omc-gradient-secondary: linear-gradient(135deg, #ffffff 0%, #f5f7fb 48%, #edf1f7 100%);
+
+  --omc-gradient-ghost: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.045) 0%,
+    rgba(15, 23, 42, 0.018) 50%,
+    rgba(15, 23, 42, 0.006) 100%
+  );
 }
 
 /* ============================================
@@ -81,8 +106,9 @@
   --color-primary-hover: var(--omc-primary-hover);
   --color-success: var(--omc-success);
   --color-warning: var(--omc-warning);
-  --color-danger: var(--omc-success);
+  --color-danger: var(--omc-danger);
   --color-surface: var(--omc-surface);
+  --color-info: var(--omc-info);
 
   --color-sidebar-background: var(--sidebar-background);
   --color-sidebar-card: var(--sidebar-card);
@@ -99,12 +125,9 @@
   --radius-xl: 24px;
 
   /* Shadow scale — generates shadow-soft-sm, shadow-soft-md, etc. */
-  --shadow-soft-sm:
-    0 1px 2px rgba(0, 0, 0, 0.16), 0 1px 1px rgba(0, 0, 0, 0.08);
-  --shadow-soft-md:
-    0 4px 12px rgba(0, 0, 0, 0.22), 0 2px 4px rgba(0, 0, 0, 0.1);
-  --shadow-soft-lg:
-    0 12px 32px rgba(0, 0, 0, 0.28), 0 4px 8px rgba(0, 0, 0, 0.12);
+  --shadow-soft-sm: 0 1px 2px rgba(0, 0, 0, 0.16), 0 1px 1px rgba(0, 0, 0, 0.08);
+  --shadow-soft-md: 0 4px 12px rgba(0, 0, 0, 0.22), 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-soft-lg: 0 12px 32px rgba(0, 0, 0, 0.28), 0 4px 8px rgba(0, 0, 0, 0.12);
 }
 
 /* ============================================
@@ -204,6 +227,46 @@
     color: var(--omc-text-subtle);
   }
 
+  .bg-gradient-primary {
+    background: var(--omc-gradient-primary);
+  }
+
+  .bg-gradient-secondary {
+    background: var(--omc-gradient-secondary);
+  }
+
+  .bg-gradient-ghost {
+    background: var(--omc-gradient-ghost);
+  }
+
+  .text-gradient-primary {
+    background: var(--omc-gradient-primary);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
   /* ============================================
      6. SURFACE / ELEVATION SYSTEM
      ============================================ */
@@ -236,10 +299,12 @@
      mobile sidebar overlay — NOT primary content cards)
      ============================================ */
   .glass-panel {
-    background-color: var(--omc-glass-bg);
+    background: var(--omc-glass-bg);
     border: 1px solid var(--omc-glass-border);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    backdrop-filter: blur(24px) saturate(140%);
+
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-soft-md);
   }

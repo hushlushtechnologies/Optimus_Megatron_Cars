@@ -13,17 +13,10 @@ export interface SpinnerProps {
   label?: string;
 }
 
-export function Spinner({
-  size = "md",
-  className,
-  label = "Loading",
-}: SpinnerProps) {
+export function Spinner({ size = "md", className, label = "Loading" }: SpinnerProps) {
   return (
     <span role="status" className="inline-flex items-center gap-2">
-      <Loader2
-        className={cn("animate-spin text-primary", sizeMap[size], className)}
-        aria-hidden="true"
-      />
+      <Loader2 className={cn("text-primary animate-spin", sizeMap[size], className)} aria-hidden="true" />
       <span className="sr-only">{label}</span>
     </span>
   );

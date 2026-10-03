@@ -13,17 +13,11 @@ export default async function TestConnectionPage() {
   return (
     <main className="mx-auto flex max-w-lg flex-col gap-4 p-8">
       <h1 className="text-h1">Supabase Connection Test</h1>
-      <p className="text-body text-text-muted">
-        Project URL: {process.env.NEXT_PUBLIC_SUPABASE_URL}
-      </p>
+      <p className="text-body text-text-muted">Project URL: {process.env.NEXT_PUBLIC_SUPABASE_URL}</p>
       {isConnected ? (
-        <p className="text-body-lg text-emerald-400">
-          ✅ Successfully connected to Supabase.
-        </p>
+        <p className="text-body-lg text-emerald-400">✅ Successfully connected to Supabase.</p>
       ) : (
-        <p className="text-body-lg text-red-400">
-          ❌ Connection failed: {error?.message}
-        </p>
+        <p className="text-body-lg text-red-400">❌ Connection failed: {error?.message}</p>
       )}
     </main>
   );
