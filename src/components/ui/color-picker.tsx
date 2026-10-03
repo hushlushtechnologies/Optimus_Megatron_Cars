@@ -54,7 +54,7 @@ export function ColorPicker({
   return (
     <div className="flex w-full flex-col gap-1.5">
       {/* Label */}
-      <label htmlFor={hexInputId} className="flex items-center gap-1 text-label">
+      <label htmlFor={hexInputId} className="text-label flex items-center gap-1">
         <span>{label}</span>
 
         {required && (
@@ -73,22 +73,22 @@ export function ColorPicker({
         <label
           htmlFor={colorInputId}
           className={cn(
-            "group relative flex h-10 w-full shrink-0 cursor-pointer items-center gap-2.5 rounded-md border border-border bg-card px-2.5 transition-[border-color,background-color] duration-150",
+            "group border-border bg-card relative flex h-10 w-full shrink-0 cursor-pointer items-center gap-2.5 rounded-md border px-2.5 transition-[border-color,background-color] duration-150",
             "hover:border-text-subtle/50 sm:w-auto",
-            "focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10",
+            "focus-within:border-primary focus-within:ring-primary/10 focus-within:ring-2",
             disabled && "pointer-events-none cursor-not-allowed opacity-60",
             hasError && "border-danger",
           )}
         >
           <span
-            className="size-6 shrink-0 rounded-md border border-white/10 shadow-soft-sm"
+            className="shadow-soft-sm size-6 shrink-0 rounded-md border border-white/10"
             style={{
               backgroundColor: isValidHex ? value : "#000000",
             }}
             aria-hidden="true"
           />
 
-          <span className="flex items-center gap-1.5 text-body-sm text-text-muted sm:hidden">
+          <span className="text-body-sm text-text-muted flex items-center gap-1.5 sm:hidden">
             <Pipette className="size-3.5" aria-hidden="true" />
             Choose color
           </span>
@@ -108,7 +108,7 @@ export function ColorPicker({
         <div className="relative shrink-0 sm:w-32">
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-text-subtle"
+            className="text-text-subtle pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-xs font-medium"
           >
             HEX
           </span>
@@ -127,12 +127,12 @@ export function ColorPicker({
             aria-describedby={error ? errorId : hint ? hintId : undefined}
             onChange={(event) => handleHexChange(event.target.value)}
             className={cn(
-              "h-10 w-full rounded-md border border-border bg-card pl-11 pr-3 text-sm uppercase text-text-primary",
-              "placeholder:text-xs placeholder:text-text-subtle",
+              "border-border bg-card text-text-primary h-10 w-full rounded-md border pr-3 pl-11 text-sm uppercase",
+              "placeholder:text-text-subtle placeholder:text-xs",
               "transition-[border-color,background-color,box-shadow] duration-150",
               "hover:border-text-subtle/50",
-              "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10",
-              "disabled:cursor-not-allowed disabled:bg-card-hover disabled:text-text-subtle disabled:opacity-60",
+              "focus:border-primary focus:ring-primary/10 focus:ring-2 focus:outline-none",
+              "disabled:bg-card-hover disabled:text-text-subtle disabled:cursor-not-allowed disabled:opacity-60",
               hasError && "border-danger focus:border-danger focus:ring-danger/10",
             )}
           />
@@ -147,12 +147,12 @@ export function ColorPicker({
             placeholder="Color name, e.g. Nardo Grey"
             onChange={(event) => onColorNameChange(event.target.value)}
             className={cn(
-              "h-10 min-w-0 flex-1 rounded-md border border-border bg-card px-3 text-sm text-text-primary",
-              "placeholder:text-xs placeholder:text-text-subtle",
+              "border-border bg-card text-text-primary h-10 min-w-0 flex-1 rounded-md border px-3 text-sm",
+              "placeholder:text-text-subtle placeholder:text-xs",
               "transition-[border-color,background-color,box-shadow] duration-150",
               "hover:border-text-subtle/50",
-              "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10",
-              "disabled:cursor-not-allowed disabled:bg-card-hover disabled:text-text-subtle disabled:opacity-60",
+              "focus:border-primary focus:ring-primary/10 focus:ring-2 focus:outline-none",
+              "disabled:bg-card-hover disabled:text-text-subtle disabled:cursor-not-allowed disabled:opacity-60",
             )}
           />
         )}
@@ -160,20 +160,12 @@ export function ColorPicker({
 
       {/* Error / hint */}
       {error ? (
-        <p
-          id={errorId}
-          role="alert"
-          className="flex items-center gap-1.5 text-body-sm text-danger"
-        >
+        <p id={errorId} role="alert" className="text-body-sm text-danger flex items-center gap-1.5">
           <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
           <span>{error}</span>
         </p>
       ) : hasHexError ? (
-        <p
-          id={errorId}
-          role="alert"
-          className="flex items-center gap-1.5 text-body-sm text-danger"
-        >
+        <p id={errorId} role="alert" className="text-body-sm text-danger flex items-center gap-1.5">
           <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
           <span>Enter a valid 6-digit HEX color.</span>
         </p>

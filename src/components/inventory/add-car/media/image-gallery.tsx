@@ -18,23 +18,11 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  Check,
-  GripVertical,
-  ImageIcon,
-  ImageOff,
-  Loader2,
-  Star,
-  Trash2,
-} from "lucide-react";
+import { Check, GripVertical, ImageIcon, ImageOff, Loader2, Star, Trash2 } from "lucide-react";
 
 import { MediaDropzone } from "@/src/components/inventory/add-car/media/media-dropzone";
 import { ConfirmDialog } from "@/src/components/shared/confirm-dialog";
-import {
-  uploadCarMediaFile,
-  validateMediaFile,
-  getMediaLimitLabel,
-} from "@/src/lib/supabase/storage";
+import { uploadCarMediaFile, validateMediaFile, getMediaLimitLabel } from "@/src/lib/supabase/storage";
 import {
   createCarMediaRecord,
   deleteCarMediaRecord,
@@ -52,11 +40,7 @@ interface ImageGalleryProps {
 
 const MAX_IMAGES = 40;
 
-export function ImageGallery({
-  carId,
-  images,
-  onImagesChange,
-}: ImageGalleryProps) {
+export function ImageGallery({ carId, images, onImagesChange }: ImageGalleryProps) {
   const [uploadingCount, setUploadingCount] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
@@ -195,15 +179,15 @@ export function ImageGallery({
         <div>
           <p className="text-label">Image Gallery</p>
 
-          <p className="mt-1 text-body-sm text-text-muted">
+          <p className="text-body-sm text-text-muted mt-1">
             Upload vehicle photos, choose the cover image, and drag to reorder.
           </p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <ImageIcon className="size-3.5 text-text-subtle" aria-hidden="true" />
+          <ImageIcon className="text-text-subtle size-3.5" aria-hidden="true" />
 
-          <span className="text-caption tabular-nums text-text-muted">
+          <span className="text-caption text-text-muted tabular-nums">
             {totalCount} / {MAX_IMAGES} images
           </span>
         </div>
@@ -217,12 +201,10 @@ export function ImageGallery({
           onFilesSelected={handleFiles}
         />
       ) : (
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-card-hover/30 px-4 py-3">
-          <Check className="size-4 shrink-0 text-success" aria-hidden="true" />
+        <div className="border-border bg-card-hover/30 flex items-center gap-2 rounded-lg border px-4 py-3">
+          <Check className="text-success size-4 shrink-0" aria-hidden="true" />
 
-          <p className="text-body-sm text-text-muted">
-            Maximum of {MAX_IMAGES} images reached.
-          </p>
+          <p className="text-body-sm text-text-muted">Maximum of {MAX_IMAGES} images reached.</p>
         </div>
       )}
 
@@ -230,12 +212,10 @@ export function ImageGallery({
       {(images.length > 0 || uploadingCount > 0) && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-4">
-            <p className="text-caption text-text-subtle">
-              Drag images to change their display order.
-            </p>
+            <p className="text-caption text-text-subtle">Drag images to change their display order.</p>
 
             {images.length > 1 && (
-              <p className="hidden text-caption text-text-subtle sm:block">
+              <p className="text-caption text-text-subtle hidden sm:block">
                 First image is not automatically the cover
               </p>
             )}
@@ -247,11 +227,8 @@ export function ImageGallery({
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
           >
-            <SortableContext
-              items={images.map((image) => image.id)}
-              strategy={rectSortingStrategy}
-            >
-              <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <SortableContext items={images.map((image) => image.id)} strategy={rectSortingStrategy}>
+              <div className="xs:grid-cols-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {images.map((image, index) => (
                   <SortableImageCard
                     key={image.id}
@@ -273,16 +250,14 @@ export function ImageGallery({
 
       {/* Empty state */}
       {images.length === 0 && uploadingCount === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-10 text-center">
-          <div className="mb-3 flex size-10 items-center justify-center rounded-full bg-card-hover">
-            <ImageOff className="size-4 text-text-subtle" aria-hidden="true" />
+        <div className="border-border flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-10 text-center">
+          <div className="bg-card-hover mb-3 flex size-10 items-center justify-center rounded-full">
+            <ImageOff className="text-text-subtle size-4" aria-hidden="true" />
           </div>
 
-          <p className="text-body-sm font-medium text-text-primary">
-            No vehicle images yet
-          </p>
+          <p className="text-body-sm text-text-primary font-medium">No vehicle images yet</p>
 
-          <p className="mt-1 max-w-sm text-caption text-text-subtle">
+          <p className="text-caption text-text-subtle mt-1 max-w-sm">
             Upload clear exterior and interior photos to build the vehicle gallery.
           </p>
         </div>
@@ -312,14 +287,7 @@ function SortableImageCard({
   onSetFeatured: () => void;
   onDelete: () => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: image.id,
   });
 
@@ -333,13 +301,13 @@ function SortableImageCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group relative overflow-hidden rounded-lg border bg-card transition-[border-color,box-shadow,opacity] duration-150",
+        "group bg-card relative overflow-hidden rounded-lg border transition-[border-color,box-shadow,opacity] duration-150",
         image.is_featured ? "border-primary/50" : "border-border hover:border-text-subtle/40",
-        isDragging && "z-20 opacity-60 shadow-soft-lg",
+        isDragging && "shadow-soft-lg z-20 opacity-60",
       )}
     >
       {/* Image */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-card-hover">
+      <div className="bg-card-hover relative aspect-[4/3] overflow-hidden">
         <img
           src={image.url}
           alt={`Vehicle image ${index + 1}`}
@@ -354,12 +322,12 @@ function SortableImageCard({
         />
 
         {/* Order */}
-        <span className="absolute left-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-md bg-black/55 px-1.5 text-[10px] font-semibold tabular-nums text-white backdrop-blur-sm">
+        <span className="absolute top-2 left-2 flex h-6 min-w-6 items-center justify-center rounded-md bg-black/55 px-1.5 text-[10px] font-semibold text-white tabular-nums backdrop-blur-sm">
           {index + 1}
         </span>
 
         {/* Actions */}
-        <div className="absolute right-2 top-2 flex items-center gap-1.5">
+        <div className="absolute top-2 right-2 flex items-center gap-1.5">
           <button
             type="button"
             aria-label="Drag image to reorder"
@@ -372,18 +340,12 @@ function SortableImageCard({
 
           <button
             type="button"
-            aria-label={
-              image.is_featured
-                ? "Featured image"
-                : "Set as featured image"
-            }
+            aria-label={image.is_featured ? "Featured image" : "Set as featured image"}
             onClick={onSetFeatured}
             disabled={image.is_featured}
             className={cn(
               "flex size-7 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur-sm transition-colors",
-              image.is_featured
-                ? "cursor-default text-primary"
-                : "hover:bg-black/75 hover:text-primary",
+              image.is_featured ? "text-primary cursor-default" : "hover:text-primary hover:bg-black/75",
             )}
           >
             <Star
@@ -397,7 +359,7 @@ function SortableImageCard({
             type="button"
             aria-label="Delete image"
             onClick={onDelete}
-            className="flex size-7 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-danger hover:text-white"
+            className="hover:bg-danger flex size-7 items-center justify-center rounded-md bg-black/55 text-white backdrop-blur-sm transition-colors hover:text-white"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
           </button>
@@ -407,10 +369,7 @@ function SortableImageCard({
         {image.is_featured && (
           <div className="absolute bottom-2 left-2">
             <span className="inline-flex items-center gap-1.5 rounded-md bg-black/65 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm">
-              <Star
-                className="size-3 fill-primary text-primary"
-                aria-hidden="true"
-              />
+              <Star className="fill-primary text-primary size-3" aria-hidden="true" />
               Featured
             </span>
           </div>
@@ -422,13 +381,10 @@ function SortableImageCard({
 
 function UploadingImageCard() {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-card-hover/60">
+    <div className="border-border bg-card overflow-hidden rounded-lg border">
+      <div className="bg-card-hover/60 relative flex aspect-[4/3] items-center justify-center overflow-hidden">
         <div className="flex flex-col items-center gap-2">
-          <Loader2
-            className="size-5 animate-spin text-primary"
-            aria-hidden="true"
-          />
+          <Loader2 className="text-primary size-5 animate-spin" aria-hidden="true" />
 
           <span className="text-caption text-text-muted">Uploading...</span>
         </div>

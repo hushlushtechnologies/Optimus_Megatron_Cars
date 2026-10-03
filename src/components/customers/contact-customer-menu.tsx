@@ -15,17 +15,29 @@ export function ContactCustomerMenu({ email, phone }: ContactCustomerMenuProps) 
   return (
     <Dropdown>
       <DropdownTrigger>
-        <Button variant="outline" leftIcon={<Phone className="size-4" />} rightIcon={<ChevronDown className="size-3.5" />}>
+        <Button
+          variant="outline"
+          leftIcon={<Phone className="size-4" />}
+          rightIcon={<ChevronDown className="size-3.5" />}
+        >
           Contact Customer
         </Button>
       </DropdownTrigger>
       <DropdownContent align="start" className="w-52 py-1">
-        <a href={`mailto:${email}`} role="menuitem" className="flex items-center gap-2.5 px-4 py-2 text-body-sm text-text-primary hover:bg-card-hover">
-          <Mail className="size-4 text-text-muted" aria-hidden="true" />
+        <a
+          href={`mailto:${email}`}
+          role="menuitem"
+          className="text-body-sm text-text-primary hover:bg-card-hover flex items-center gap-2.5 px-4 py-2"
+        >
+          <Mail className="text-text-muted size-4" aria-hidden="true" />
           Email
         </a>
-        <a href={`tel:${phone}`} role="menuitem" className="flex items-center gap-2.5 px-4 py-2 text-body-sm text-text-primary hover:bg-card-hover">
-          <Phone className="size-4 text-text-muted" aria-hidden="true" />
+        <a
+          href={`tel:${phone}`}
+          role="menuitem"
+          className="text-body-sm text-text-primary hover:bg-card-hover flex items-center gap-2.5 px-4 py-2"
+        >
+          <Phone className="text-text-muted size-4" aria-hidden="true" />
           Call
         </a>
         <a
@@ -33,9 +45,9 @@ export function ContactCustomerMenu({ email, phone }: ContactCustomerMenuProps) 
           target="_blank"
           rel="noreferrer"
           role="menuitem"
-          className="flex items-center gap-2.5 px-4 py-2 text-body-sm text-text-primary hover:bg-card-hover"
+          className="text-body-sm text-text-primary hover:bg-card-hover flex items-center gap-2.5 px-4 py-2"
         >
-          <MessageCircle className="size-4 text-text-muted" aria-hidden="true" />
+          <MessageCircle className="text-text-muted size-4" aria-hidden="true" />
           WhatsApp
         </a>
       </DropdownContent>

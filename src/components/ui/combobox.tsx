@@ -129,180 +129,148 @@ export function Combobox({
     }
   };
 
- return (
-  <div ref={containerRef} className="flex w-full flex-col gap-1.5">
-    <label className="text-label">{label}</label>
+  return (
+    <div ref={containerRef} className="flex w-full flex-col gap-1.5">
+      <label className="text-label">{label}</label>
 
-    <div className="relative">
-      <input
-        ref={inputRef}
-        type="text"
-        value={query}
-        disabled={disabled}
-        placeholder={disabled ? disabledHint : placeholder}
-        onFocus={() => setIsOpen(true)}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setIsOpen(true);
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          disabled={disabled}
+          placeholder={disabled ? disabledHint : placeholder}
+          onFocus={() => setIsOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
 
-          if (value) {
-            onChange(null);
-          }
-        }}
-        onKeyDown={handleKeyDown}
-        aria-invalid={error ? true : undefined}
-        role="combobox"
-        aria-expanded={isOpen}
-        aria-autocomplete="list"
-        aria-controls={isOpen ? listId : undefined}
-        aria-activedescendant={
-          isOpen ? `combobox-option-${highlightedIndex}` : undefined
-        }
-        className={cn(
-          "h-10 w-full rounded-md border border-border bg-card pl-3 pr-9 text-sm text-text-primary",
-          "placeholder:text-xs placeholder:text-text-subtle",
-          "transition-[border-color,background-color,box-shadow] duration-150",
-          "hover:border-text-subtle/50",
-          "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10",
-          "disabled:cursor-not-allowed disabled:bg-card-hover disabled:text-text-subtle disabled:opacity-60",
-          error && "border-danger focus:border-danger focus:ring-danger/10",
-        )}
-      />
+            if (value) {
+              onChange(null);
+            }
+          }}
+          onKeyDown={handleKeyDown}
+          aria-invalid={error ? true : undefined}
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-autocomplete="list"
+          aria-controls={isOpen ? listId : undefined}
+          aria-activedescendant={isOpen ? `combobox-option-${highlightedIndex}` : undefined}
+          className={cn(
+            "border-border bg-card text-text-primary h-10 w-full rounded-md border pr-9 pl-3 text-sm",
+            "placeholder:text-text-subtle placeholder:text-xs",
+            "transition-[border-color,background-color,box-shadow] duration-150",
+            "hover:border-text-subtle/50",
+            "focus:border-primary focus:ring-primary/10 focus:ring-2 focus:outline-none",
+            "disabled:bg-card-hover disabled:text-text-subtle disabled:cursor-not-allowed disabled:opacity-60",
+            error && "border-danger focus:border-danger focus:ring-danger/10",
+          )}
+        />
 
-      <ChevronDown
-        aria-hidden="true"
-        className={cn(
-          "pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-text-muted",
-          "transition-transform duration-200",
-          isOpen && "rotate-180",
-        )}
-      />
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            "text-text-muted pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2",
+            "transition-transform duration-200",
+            isOpen && "rotate-180",
+          )}
+        />
 
-      <AnimatePresence>
-        {isOpen && !disabled && (
-          <motion.ul
-            ref={listRef}
-            id={listId}
-            role="listbox"
-            initial={{ opacity: 0, y: -4, scale: 0.99 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.99 }}
-            transition={{ duration: 0.12 }}
-            className="scrollbar-hidden absolute z-50 mt-1.5 max-h-64 w-full overflow-y-auto rounded-lg border border-border bg-card p-1.5 shadow-soft-lg"
-          >
-            {filtered.length === 0 && !canCreate && (
-              <li className="flex min-h-16 items-center justify-center px-3 py-4">
-                <span className="text-body-sm text-text-subtle">
-                  No matches found
-                </span>
-              </li>
-            )}
-
-            {filtered.map((option, index) => {
-              const isSelected = option.id === value;
-              const isHighlighted = index === highlightedIndex;
-
-              return (
-                <li key={option.id}>
-                  <button
-                    id={`combobox-option-${index}`}
-                    type="button"
-                    role="option"
-                    data-highlighted={isHighlighted}
-                    aria-selected={isSelected}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                    onClick={() => handleSelect(option)}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left",
-                      "text-body-sm text-text-primary transition-colors duration-100",
-                      "hover:bg-card-hover",
-                      isHighlighted && "bg-card-hover",
-                    )}
-                  >
-                    <span className="min-w-0 flex-1 truncate">
-                      {option.label}
-                    </span>
-
-                    {isSelected && (
-                      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                        <Check
-                          className="size-3 text-primary"
-                          strokeWidth={2.5}
-                          aria-hidden="true"
-                        />
-                      </span>
-                    )}
-                  </button>
+        <AnimatePresence>
+          {isOpen && !disabled && (
+            <motion.ul
+              ref={listRef}
+              id={listId}
+              role="listbox"
+              initial={{ opacity: 0, y: -4, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.99 }}
+              transition={{ duration: 0.12 }}
+              className="scrollbar-hidden border-border bg-card shadow-soft-lg absolute z-50 mt-1.5 max-h-64 w-full overflow-y-auto rounded-lg border p-1.5"
+            >
+              {filtered.length === 0 && !canCreate && (
+                <li className="flex min-h-16 items-center justify-center px-3 py-4">
+                  <span className="text-body-sm text-text-subtle">No matches found</span>
                 </li>
-              );
-            })}
+              )}
 
-            {canCreate && (
-              <>
-                {filtered.length > 0 && (
-                  <li
-                    aria-hidden="true"
-                    className="my-1 h-px bg-border/70"
-                  />
-                )}
+              {filtered.map((option, index) => {
+                const isSelected = option.id === value;
+                const isHighlighted = index === highlightedIndex;
 
-                <li>
-                  <button
-                    id={`combobox-option-${filtered.length}`}
-                    type="button"
-                    role="option"
-                    aria-selected={false}
-                    disabled={isCreating}
-                    data-highlighted={filtered.length === highlightedIndex}
-                    onMouseEnter={() => setHighlightedIndex(filtered.length)}
-                    onClick={() => void handleCreate()}
-                    className={cn(
-                      "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left",
-                      "text-body-sm font-medium text-text-primary transition-colors duration-100",
-                      "hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50",
-                      filtered.length === highlightedIndex && "bg-card-hover",
-                    )}
-                  >
-                    <span className="flex size-6 shrink-0 items-center justify-center">
-                      {isCreating ? (
-                        <Loader2
-                          className="size-3.5 animate-spin text-primary"
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <Plus
-                          className="size-3.5 text-primary"
-                          aria-hidden="true"
-                        />
+                return (
+                  <li key={option.id}>
+                    <button
+                      id={`combobox-option-${index}`}
+                      type="button"
+                      role="option"
+                      data-highlighted={isHighlighted}
+                      aria-selected={isSelected}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                      onClick={() => handleSelect(option)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left",
+                        "text-body-sm text-text-primary transition-colors duration-100",
+                        "hover:bg-card-hover",
+                        isHighlighted && "bg-card-hover",
                       )}
-                    </span>
+                    >
+                      <span className="min-w-0 flex-1 truncate">{option.label}</span>
 
-                    <span className="min-w-0 truncate">
-                      Create{" "}
-                      <span className="text-text-muted">
-                        &quot;{query.trim()}&quot;
+                      {isSelected && (
+                        <span className="bg-primary/10 flex size-5 shrink-0 items-center justify-center rounded-full">
+                          <Check className="text-primary size-3" strokeWidth={2.5} aria-hidden="true" />
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+
+              {canCreate && (
+                <>
+                  {filtered.length > 0 && <li aria-hidden="true" className="bg-border/70 my-1 h-px" />}
+
+                  <li>
+                    <button
+                      id={`combobox-option-${filtered.length}`}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      disabled={isCreating}
+                      data-highlighted={filtered.length === highlightedIndex}
+                      onMouseEnter={() => setHighlightedIndex(filtered.length)}
+                      onClick={() => void handleCreate()}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left",
+                        "text-body-sm text-text-primary font-medium transition-colors duration-100",
+                        "hover:bg-card-hover disabled:cursor-not-allowed disabled:opacity-50",
+                        filtered.length === highlightedIndex && "bg-card-hover",
+                      )}
+                    >
+                      <span className="flex size-6 shrink-0 items-center justify-center">
+                        {isCreating ? (
+                          <Loader2 className="text-primary size-3.5 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <Plus className="text-primary size-3.5" aria-hidden="true" />
+                        )}
                       </span>
-                    </span>
-                  </button>
-                </li>
-              </>
-            )}
-          </motion.ul>
-        )}
-      </AnimatePresence>
+
+                      <span className="min-w-0 truncate">
+                        Create <span className="text-text-muted">&quot;{query.trim()}&quot;</span>
+                      </span>
+                    </button>
+                  </li>
+                </>
+              )}
+            </motion.ul>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {error && <p className="text-body-sm text-danger">{error}</p>}
+
+      {!error && disabled && disabledHint && <p className="text-caption text-text-subtle">{disabledHint}</p>}
     </div>
-
-    {error && (
-      <p className="text-body-sm text-danger">
-        {error}
-      </p>
-    )}
-
-    {!error && disabled && disabledHint && (
-      <p className="text-caption text-text-subtle">
-        {disabledHint}
-      </p>
-    )}
-  </div>
-);
+  );
 }

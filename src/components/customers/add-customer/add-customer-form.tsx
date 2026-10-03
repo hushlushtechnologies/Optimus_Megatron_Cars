@@ -19,26 +19,35 @@ import {
   type AddCustomerValues,
 } from "@/src/lib/validation/customer";
 import { createCustomer } from "@/app/admin/customers/new/actions";
+import { updateCustomer } from "@/app/admin/customers/[id]/edit-actions";
 import type { CustomerFilterLookups } from "@/src/lib/supabase/customer-lookups";
 
 const LIFECYCLE_OPTIONS = ["Prospect", "Active", "VIP", "Inactive", "Do Not Contact"].map((v) => ({
   value: v,
   label: v,
 }));
-const LANGUAGE_OPTIONS = ["English", "Arabic", "Other"].map((v) => ({
-  value: v,
-  label: v,
-}));
+const LANGUAGE_OPTIONS = ["English", "Arabic", "Other"].map((v) => ({ value: v, label: v }));
 
 interface AddCustomerFormProps {
+  mode?: "create" | "edit";
+  customerId?: string;
+  initialValues?: Partial<AddCustomerValues>;
+  initialTagIds?: string[];
   lookups: CustomerFilterLookups;
   sourcesWithDetail: Record<string, boolean>;
 }
 
-export function AddCustomerForm({ lookups, sourcesWithDetail }: AddCustomerFormProps) {
+export function AddCustomerForm({
+  mode = "create",
+  customerId,
+  initialValues,
+  initialTagIds = [],
+  lookups,
+  sourcesWithDetail,
+}: AddCustomerFormProps) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialTagIds);
 
   const {
     register,
@@ -48,7 +57,7 @@ export function AddCustomerForm({ lookups, sourcesWithDetail }: AddCustomerFormP
     formState: { errors, isDirty },
   } = useForm<AddCustomerValues>({
     resolver: zodResolver(addCustomerSchema),
-    defaultValues: addCustomerDefaults,
+    defaultValues: { ...addCustomerDefaults, ...initialValues },
   });
 
   useUnsavedChangesWarning(isDirty);
@@ -65,14 +74,25 @@ export function AddCustomerForm({ lookups, sourcesWithDetail }: AddCustomerFormP
   const onSubmit = handleSubmit(
     async (values) => {
       setIsSaving(true);
+
+      if (mode === "edit" && customerId) {
+        const result = await updateCustomer(customerId, values, selectedTagIds);
+        setIsSaving(false);
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Customer Updated Successfully");
+        router.push(`/admin/customers/${customerId}`);
+        return;
+      }
+
       const result = await createCustomer(values, selectedTagIds);
       setIsSaving(false);
-
       if (result.error) {
         toast.error(result.error);
         return;
       }
-
       toast.success(
         values.create_login
           ? "Customer created successfully — a setup email has been sent."
@@ -104,10 +124,7 @@ export function AddCustomerForm({ lookups, sourcesWithDetail }: AddCustomerFormP
             <Select
               label="Location"
               placeholder="Select a location"
-              options={lookups.locations.map((l) => ({
-                value: l.id,
-                label: l.name,
-              }))}
+              options={lookups.locations.map((l) => ({ value: l.id, label: l.name }))}
               {...field}
               value={field.value ?? ""}
             />
@@ -137,10 +154,7 @@ export function AddCustomerForm({ lookups, sourcesWithDetail }: AddCustomerFormP
             <Select
               label="Customer Source"
               placeholder="Select a source"
-              options={lookups.sources.map((s) => ({
-                value: s.id,
-                label: s.name,
-              }))}
+              options={lookups.sources.map((s) => ({ value: s.id, label: s.name }))}
               error={errors.source_id?.message}
               {...field}
             />
@@ -158,10 +172,7 @@ export function AddCustomerForm({ lookups, sourcesWithDetail }: AddCustomerFormP
             <Select
               label="Primary Relationship Manager"
               placeholder="Unassigned"
-              options={lookups.staff.map((s) => ({
-                value: s.id,
-                label: s.full_name,
-              }))}
+              options={lookups.staff.map((s) => ({ value: s.id, label: s.full_name }))}
               {...field}
               value={field.value ?? ""}
             />
@@ -193,37 +204,47 @@ export function AddCustomerForm({ lookups, sourcesWithDetail }: AddCustomerFormP
           </div>
         </div>
 
-        <div className="sm:col-span-2">
-          <Textarea
-            label="Internal Notes"
-            placeholder="Anything worth noting about this customer..."
-            {...register("internal_notes")}
-          />
-        </div>
+        {mode === "create" && (
+          <div className="sm:col-span-2">
+            <Textarea
+              label="Internal Notes"
+              placeholder="Anything worth noting about this customer..."
+              {...register("internal_notes")}
+            />
+          </div>
+        )}
       </Card>
 
-      <Card padding="lg" className="flex flex-col gap-4">
-        <p className="text-label">Login Account</p>
-        <Controller
-          control={control}
-          name="create_login"
-          render={({ field }) => (
-            <Switch
-              label="Create Customer Login Account"
-              description="Sends a secure setup email — the customer sets their own password. No password is ever visible to admin staff."
-              checked={field.value}
-              onCheckedChange={field.onChange}
-            />
-          )}
-        />
-      </Card>
+      {mode === "create" && (
+        <Card padding="lg" className="flex flex-col gap-4">
+          <p className="text-label">Login Account</p>
+          <Controller
+            control={control}
+            name="create_login"
+            render={({ field }) => (
+              <Switch
+                label="Create Customer Login Account"
+                description="Sends a secure setup email — the customer sets their own password. No password is ever visible to admin staff."
+                checked={field.value}
+                onCheckedChange={field.onChange}
+              />
+            )}
+          />
+        </Card>
+      )}
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={() => router.push("/admin/customers")}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            router.push(mode === "edit" && customerId ? `/admin/customers/${customerId}` : "/admin/customers")
+          }
+        >
           Cancel
         </Button>
         <Button type="submit" isLoading={isSaving}>
-          Create Customer
+          {mode === "edit" ? "Save Changes" : "Create Customer"}
         </Button>
       </div>
     </form>

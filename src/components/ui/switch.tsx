@@ -11,13 +11,7 @@ interface SwitchProps {
   disabled?: boolean;
 }
 
-export function Switch({
-  checked,
-  onCheckedChange,
-  label,
-  description,
-  disabled,
-}: SwitchProps) {
+export function Switch({ checked, onCheckedChange, label, description, disabled }: SwitchProps) {
   const id = useId();
 
   return (
@@ -27,7 +21,7 @@ export function Switch({
         <label
           htmlFor={id}
           className={cn(
-            "cursor-pointer text-body-sm font-medium text-text-primary",
+            "text-body-sm text-text-primary cursor-pointer font-medium",
             disabled && "cursor-not-allowed opacity-60",
           )}
         >
@@ -35,12 +29,7 @@ export function Switch({
         </label>
 
         {description && (
-          <p
-            className={cn(
-              "mt-0.5 text-caption text-text-subtle",
-              disabled && "opacity-60",
-            )}
-          >
+          <p className={cn("text-caption text-text-subtle mt-0.5", disabled && "opacity-60")}>
             {description}
           </p>
         )}
@@ -57,20 +46,18 @@ export function Switch({
         onClick={() => onCheckedChange(!checked)}
         className={cn(
           "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-[background,border-color,box-shadow] duration-200",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2 focus-visible:ring-offset-base",
+          "focus-visible:ring-primary/20 focus-visible:ring-offset-base focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-50",
           checked
-            ? "border-transparent bg-gradient-primary"
+            ? "bg-gradient-primary border-transparent"
             : "border-border bg-card-hover hover:border-text-subtle/50",
         )}
       >
         <span
           aria-hidden="true"
           className={cn(
-            "inline-block size-4 rounded-full shadow-soft-sm transition-transform duration-200 ease-out",
-            checked
-              ? "translate-x-6 bg-[#0b1220]"
-              : "translate-x-1 bg-text-muted",
+            "shadow-soft-sm inline-block size-4 rounded-full transition-transform duration-200 ease-out",
+            checked ? "translate-x-6 bg-[#0b1220]" : "bg-text-muted translate-x-1",
           )}
         />
       </button>

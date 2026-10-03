@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-import { Trash2, Lock } from "lucide-react";
+import { Trash2, Lock, Pencil, Check, X } from "lucide-react";
 import { Textarea } from "@/src/components/ui/textarea";
+import { Switch } from "@/src/components/ui/switch";
 import { Button } from "@/src/components/ui/button";
+import { IconButton } from "@/src/components/ui/icon-button";
 import { ConfirmDialog } from "@/src/components/shared/confirm-dialog";
 import type { CustomerNote } from "@/src/lib/types/customer";
 
@@ -13,26 +15,42 @@ interface NotesPanelProps {
   customerId: string;
   notes: CustomerNote[];
   authorNames: Record<string, string>;
-  onAddNote: (customerId: string, text: string) => Promise<{ error: string | null; note?: CustomerNote }>;
-  onDeleteNote: (noteId: string) => Promise<{ error: string | null }>;
+  currentUserId: string | null;
+  canManageAllNotes: boolean;
+  onAddNote: (
+    customerId: string,
+    text: string,
+    isInternal: boolean,
+  ) => Promise<{ error: string | null; note?: CustomerNote }>;
+  onUpdateNote: (noteId: string, customerId: string, text: string) => Promise<{ error: string | null }>;
+  onArchiveNote: (noteId: string, customerId: string) => Promise<{ error: string | null }>;
 }
 
 export function NotesPanel({
   customerId,
   notes: initialNotes,
   authorNames,
+  currentUserId,
+  canManageAllNotes,
   onAddNote,
-  onDeleteNote,
+  onUpdateNote,
+  onArchiveNote,
 }: NotesPanelProps) {
   const [notes, setNotes] = useState(initialNotes);
   const [draft, setDraft] = useState("");
+  const [draftIsInternal, setDraftIsInternal] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [pendingArchiveId, setPendingArchiveId] = useState<string | null>(null);
+
+  const canModify = (note: CustomerNote) => canManageAllNotes || note.created_by === currentUserId;
 
   const handleAdd = async () => {
     if (!draft.trim()) return;
     setIsSaving(true);
-    const result = await onAddNote(customerId, draft.trim());
+    const result = await onAddNote(customerId, draft.trim(), draftIsInternal);
     setIsSaving(false);
 
     if (result.error || !result.note) {
@@ -42,17 +60,65 @@ export function NotesPanel({
 
     setNotes((prev) => [result.note!, ...prev]);
     setDraft("");
+    setDraftIsInternal(true);
   };
 
-  const handleDelete = async () => {
-    if (!pendingDeleteId) return;
-    const id = pendingDeleteId;
-    setNotes((prev) => prev.filter((n) => n.id !== id));
-    setPendingDeleteId(null);
+  const startEdit = (note: CustomerNote) => {
+    setEditingId(note.id);
+    setEditText(note.note_text);
+  };
 
-    const result = await onDeleteNote(id);
+  const handleSaveEdit = async () => {
+    if (!editingId || !editText.trim() || isSavingEdit) {
+      return;
+    }
+
+    setIsSavingEdit(true);
+
+    try {
+      const text = editText.trim();
+
+      const result = await onUpdateNote(editingId, customerId, text);
+
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      setNotes((prev) =>
+        prev.map((note) =>
+          note.id === editingId
+            ? {
+                ...note,
+                note_text: text,
+                updated_at: new Date().toISOString(),
+              }
+            : note,
+        ),
+      );
+
+      setEditingId(null);
+      setEditText("");
+
+      toast.success("Note updated");
+    } catch (error) {
+      console.error("Unable to update customer note:", error);
+
+      toast.error("Unable to update note. Please try again.");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!pendingArchiveId) return;
+    const id = pendingArchiveId;
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+    setPendingArchiveId(null);
+
+    const result = await onArchiveNote(id, customerId);
     if (result.error) toast.error(result.error);
-    else toast.success("Note removed");
+    else toast.success("Note archived");
   };
 
   return (
@@ -65,55 +131,106 @@ export function NotesPanel({
           onChange={(e) => setDraft(e.target.value)}
           rows={3}
         />
-        <Button
-          size="sm"
-          className="self-end"
-          onClick={handleAdd}
-          isLoading={isSaving}
-          disabled={!draft.trim()}
-        >
-          Add Note
-        </Button>
+        <div className="flex items-center justify-between">
+          <Switch label="Internal Only" checked={draftIsInternal} onCheckedChange={setDraftIsInternal} />
+          <Button size="sm" onClick={handleAdd} isLoading={isSaving} disabled={!draft.trim()}>
+            Add Note
+          </Button>
+        </div>
       </div>
 
       {notes.length === 0 ? (
         <p className="text-body-sm text-text-muted">No notes yet.</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {notes.map((note) => (
-            <li key={note.id} className="surface-card flex items-start justify-between gap-3 p-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-body-sm text-text-primary whitespace-pre-wrap">{note.note_text}</p>
-                <p className="text-caption text-text-subtle mt-1.5 flex items-center gap-1.5">
-                  {note.is_internal && <Lock className="size-3" aria-hidden="true" />}
-                  {authorNames[note.created_by ?? ""] ?? "Unknown"} ·{" "}
-                  {formatDistanceToNow(new Date(note.created_at), {
-                    addSuffix: true,
-                  })}
-                  {note.updated_at && " · edited"}
-                </p>
-              </div>
-              <button
-                type="button"
-                aria-label="Delete note"
-                onClick={() => setPendingDeleteId(note.id)}
-                className="text-text-muted shrink-0 hover:text-red-400"
-              >
-                <Trash2 className="size-4" aria-hidden="true" />
-              </button>
-            </li>
-          ))}
+          {notes.map((note) => {
+            const isEditing = editingId === note.id;
+            const editable = canModify(note);
+
+            return (
+              <li key={note.id} className="surface-card p-3">
+                {isEditing ? (
+                  <div className="flex flex-col gap-2">
+                    <Textarea
+                      aria-label="Edit note"
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      rows={3}
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2">
+                      <IconButton
+                        aria-label="Cancel edit"
+                        variant="ghost"
+                        size="sm"
+                        disabled={isSavingEdit}
+                        onClick={() => {
+                          setEditingId(null);
+                          setEditText("");
+                        }}
+                      >
+                        <X className="size-4" />
+                      </IconButton>
+
+                      <IconButton
+                        aria-label="Save edit"
+                        variant="ghost"
+                        size="sm"
+                        isLoading={isSavingEdit}
+                        disabled={!editText.trim()}
+                        onClick={handleSaveEdit}
+                      >
+                        <Check className="size-4 text-emerald-400" />
+                      </IconButton>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-body-sm text-text-primary whitespace-pre-wrap">{note.note_text}</p>
+                      <p className="text-caption text-text-subtle mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {note.is_internal && <Lock className="size-3" aria-hidden="true" />}
+                        {authorNames[note.created_by ?? ""] ?? "Unknown"} ·{" "}
+                        {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                        {note.updated_at &&
+                          ` · edited ${formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}`}
+                      </p>
+                    </div>
+                    {editable && (
+                      <div className="flex shrink-0 gap-1">
+                        <IconButton
+                          aria-label="Edit note"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEdit(note)}
+                        >
+                          <Pencil className="size-3.5" />
+                        </IconButton>
+                        <IconButton
+                          aria-label="Archive note"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPendingArchiveId(note.id)}
+                        >
+                          <Trash2 className="text-text-muted size-3.5 hover:text-red-400" />
+                        </IconButton>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
       <ConfirmDialog
-        isOpen={!!pendingDeleteId}
-        onClose={() => setPendingDeleteId(null)}
-        onConfirm={handleDelete}
-        title="Delete this note?"
-        description="This action cannot be undone."
-        confirmLabel="Delete"
-        variant="danger"
+        isOpen={!!pendingArchiveId}
+        onClose={() => setPendingArchiveId(null)}
+        onConfirm={handleArchive}
+        title="Archive this note?"
+        description="The note will be hidden from the list but not permanently deleted."
+        confirmLabel="Archive"
       />
     </div>
   );

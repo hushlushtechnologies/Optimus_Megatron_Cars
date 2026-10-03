@@ -105,3 +105,23 @@ export async function getCarDetail(carId: string) {
     activity,
   };
 }
+
+export async function getCustomerEditValues(customerId: string) {
+  const supabase = await createClient();
+  const { data: customer } = await supabase
+    .from("customer_profiles")
+    .select(
+      "id, first_name, last_name, email, phone, alternative_phone, location_id, address, preferred_language, source_id, source_detail, lifecycle_status, primary_relationship_manager_id",
+    )
+    .eq("id", customerId)
+    .maybeSingle();
+
+  if (!customer) return null;
+
+  const { data: tagLinks } = await supabase
+    .from("customer_tag_links")
+    .select("tag_id")
+    .eq("customer_id", customerId);
+
+  return { customer, tagIds: (tagLinks ?? []).map((t) => t.tag_id) };
+}

@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useId,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useId, useState, type KeyboardEvent, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { cn } from "@/src/lib/utils/cn";
 
@@ -61,7 +54,7 @@ export function TabsList({ children, className }: TabsListProps) {
       role="tablist"
       aria-orientation="horizontal"
       className={cn(
-        "scrollbar-hidden -mx-1 flex items-center gap-1 overflow-x-auto border-b border-border px-1",
+        "scrollbar-hidden border-border -mx-1 flex items-center gap-1 overflow-x-auto border-b px-1",
         className,
       )}
     >
@@ -134,10 +127,10 @@ export function Tab({ id, children, className }: TabProps) {
       onClick={() => setActiveTab(id)}
       onKeyDown={handleKeyDown}
       className={cn(
-        "relative shrink-0 whitespace-nowrap rounded-t-md px-3 py-2.5 text-sm transition-colors duration-150",
-        "focus-visible:outline-none focus-visible:ring-0",
+        "relative shrink-0 rounded-t-md px-3 py-2.5 text-sm whitespace-nowrap transition-colors duration-150",
+        "focus-visible:ring-0 focus-visible:outline-none",
         isActive
-          ? "font-medium text-text-primary"
+          ? "text-text-primary font-medium"
           : "text-text-muted hover:bg-card-hover/50 hover:text-text-primary",
         className,
       )}
@@ -148,7 +141,7 @@ export function Tab({ id, children, className }: TabProps) {
         <motion.span
           layoutId={`${groupId}-tab-indicator`}
           aria-hidden="true"
-          className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-primary"
+          className="bg-primary absolute inset-x-3 bottom-0 h-0.5 rounded-full"
           transition={{
             type: "spring",
             stiffness: 450,

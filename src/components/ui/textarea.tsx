@@ -1,14 +1,9 @@
-import {
-  forwardRef,
-  useId,
-  type TextareaHTMLAttributes,
-} from "react";
+import { forwardRef, useId, type TextareaHTMLAttributes } from "react";
 
 import { AlertCircle } from "lucide-react";
 import { cn } from "@/src/lib/utils/cn";
 
-export interface TextareaProps
-  extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   error?: string;
   hint?: string;
@@ -37,26 +32,17 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     const generatedId = useId();
     const textareaId = id ?? generatedId;
 
-    const descriptionId = error
-      ? `${textareaId}-error`
-      : hint
-        ? `${textareaId}-hint`
-        : undefined;
+    const descriptionId = error ? `${textareaId}-error` : hint ? `${textareaId}-hint` : undefined;
 
     const textValue = value ?? defaultValue ?? "";
     const characterCount =
-      typeof textValue === "string" || typeof textValue === "number"
-        ? String(textValue).length
-        : 0;
+      typeof textValue === "string" || typeof textValue === "number" ? String(textValue).length : 0;
 
     return (
       <div className="flex w-full flex-col gap-1.5">
         {/* Label */}
         {label && (
-          <label
-            htmlFor={textareaId}
-            className="flex items-center gap-1 text-label"
-          >
+          <label htmlFor={textareaId} className="text-label flex items-center gap-1">
             <span>{label}</span>
 
             {required && (
@@ -83,12 +69,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           aria-invalid={error ? true : undefined}
           aria-describedby={descriptionId}
           className={cn(
-            "min-h-24 w-full resize-y rounded-md border border-border bg-card px-3 py-2.5 text-sm leading-6 text-text-primary",
-            "placeholder:text-xs placeholder:text-text-subtle",
+            "border-border bg-card text-text-primary min-h-24 w-full resize-y rounded-md border px-3 py-2.5 text-sm leading-6",
+            "placeholder:text-text-subtle placeholder:text-xs",
             "transition-[border-color,background-color,box-shadow] duration-150",
             "hover:border-text-subtle/50",
-            "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10",
-            "disabled:cursor-not-allowed disabled:resize-none disabled:bg-card-hover disabled:text-text-subtle disabled:opacity-60",
+            "focus:border-primary focus:ring-primary/10 focus:ring-2 focus:outline-none",
+            "disabled:bg-card-hover disabled:text-text-subtle disabled:cursor-not-allowed disabled:resize-none disabled:opacity-60",
             error && "border-danger focus:border-danger focus:ring-danger/10",
             className,
           )}
@@ -110,26 +96,20 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             <p
               id={`${textareaId}-error`}
               role="alert"
-              className="flex min-w-0 items-center gap-1.5 text-body-sm text-danger"
+              className="text-body-sm text-danger flex min-w-0 items-center gap-1.5"
             >
-              <AlertCircle
-                className="size-3.5 shrink-0"
-                aria-hidden="true"
-              />
+              <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
 
               <span>{error}</span>
             </p>
           ) : hint ? (
-            <p
-              id={`${textareaId}-hint`}
-              className="min-w-0 text-caption text-text-subtle"
-            >
+            <p id={`${textareaId}-hint`} className="text-caption text-text-subtle min-w-0">
               {hint}
             </p>
           ) : null}
 
           {showCharacterCount && (
-            <span className="ml-auto shrink-0 text-caption tabular-nums text-text-subtle">
+            <span className="text-caption text-text-subtle ml-auto shrink-0 tabular-nums">
               {characterCount}
               {maxLength ? ` / ${maxLength}` : ""}
             </span>

@@ -52,7 +52,6 @@ export function CustomersPageClient({
             Every customer relationship across Optimus Megatron Cars, in one place.
           </p>
         </div>
-       
 
         <Link href="/admin/customers/new">
           <Button variant="gradient" size="sm" leftIcon={<Plus />}>

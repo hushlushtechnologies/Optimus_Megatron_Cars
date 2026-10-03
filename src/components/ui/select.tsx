@@ -1,9 +1,4 @@
-import {
-  forwardRef,
-  useId,
- 
-  type SelectHTMLAttributes,
-} from "react";
+import { forwardRef, useId, type SelectHTMLAttributes } from "react";
 
 import { AlertCircle, ChevronDown } from "lucide-react";
 import { cn } from "@/src/lib/utils/cn";
@@ -14,8 +9,7 @@ interface SelectOption {
   disabled?: boolean;
 }
 
-export interface SelectProps
-  extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "children"> {
+export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "children"> {
   label?: string;
   error?: string;
   hint?: string;
@@ -45,23 +39,15 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const generatedId = useId();
     const selectId = id ?? generatedId;
 
-    const descriptionId = error
-      ? `${selectId}-error`
-      : hint
-        ? `${selectId}-hint`
-        : undefined;
+    const descriptionId = error ? `${selectId}-error` : hint ? `${selectId}-hint` : undefined;
 
-    const isPlaceholderSelected =
-      value === "" || (value === undefined && defaultValue === "");
+    const isPlaceholderSelected = value === "" || (value === undefined && defaultValue === "");
 
     return (
       <div className="flex w-full flex-col gap-1.5">
         {/* Label */}
         {label && (
-          <label
-            htmlFor={selectId}
-            className="flex items-center gap-1 text-label"
-          >
+          <label htmlFor={selectId} className="text-label flex items-center gap-1">
             <span>{label}</span>
 
             {required && (
@@ -88,11 +74,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             aria-invalid={error ? true : undefined}
             aria-describedby={descriptionId}
             className={cn(
-              "h-10 w-full appearance-none rounded-md border border-border bg-card py-0 pl-3 pr-9 text-sm text-text-primary",
+              "border-border bg-card text-text-primary h-10 w-full appearance-none rounded-md border py-0 pr-9 pl-3 text-sm",
               "transition-[border-color,background-color,box-shadow] duration-150",
               "hover:border-text-subtle/50",
-              "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/10",
-              "disabled:cursor-not-allowed disabled:bg-card-hover disabled:text-text-subtle disabled:opacity-60",
+              "focus:border-primary focus:ring-primary/10 focus:ring-2 focus:outline-none",
+              "disabled:bg-card-hover disabled:text-text-subtle disabled:cursor-not-allowed disabled:opacity-60",
               isPlaceholderSelected && "text-text-subtle",
               error && "border-danger focus:border-danger focus:ring-danger/10",
               className,
@@ -106,11 +92,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             )}
 
             {options.map((option) => (
-              <option
-                key={option.value}
-                value={option.value}
-                disabled={option.disabled}
-              >
+              <option key={option.value} value={option.value} disabled={option.disabled}>
                 {option.label}
               </option>
             ))}
@@ -119,7 +101,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <ChevronDown
             aria-hidden="true"
             className={cn(
-              "pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-text-muted",
+              "text-text-muted pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2",
               disabled && "opacity-50",
               error && "text-danger",
             )}
@@ -131,16 +113,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           <p
             id={`${selectId}-error`}
             role="alert"
-            className="flex items-center gap-1.5 text-body-sm text-danger"
+            className="text-body-sm text-danger flex items-center gap-1.5"
           >
             <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </p>
         ) : hint ? (
-          <p
-            id={`${selectId}-hint`}
-            className="text-caption text-text-subtle"
-          >
+          <p id={`${selectId}-hint`} className="text-caption text-text-subtle">
             {hint}
           </p>
         ) : null}

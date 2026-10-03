@@ -27,7 +27,7 @@ export function ExteriorInteriorSection({ lookups }: ExteriorInteriorSectionProp
       <div className="mb-6">
         <h2 className="text-h3 text-text-primary">Exterior &amp; Interior</h2>
 
-        <p className="mt-1 text-body-sm text-text-muted">
+        <p className="text-body-sm text-text-muted mt-1">
           Color, paint, and cabin finish details for this vehicle.
         </p>
       </div>
@@ -39,11 +39,9 @@ export function ExteriorInteriorSection({ lookups }: ExteriorInteriorSectionProp
 
         <div>
           <div className="mb-4 flex items-center gap-3">
-            <h3 className="shrink-0 text-body-sm font-medium text-text-primary">
-              Exterior
-            </h3>
+            <h3 className="text-body-sm text-text-primary shrink-0 font-medium">Exterior</h3>
 
-            <div className="h-px flex-1 bg-border/70" />
+            <div className="bg-border/70 h-px flex-1" />
           </div>
 
           <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
@@ -101,11 +99,9 @@ export function ExteriorInteriorSection({ lookups }: ExteriorInteriorSectionProp
 
         <div>
           <div className="mb-4 flex items-center gap-3">
-            <h3 className="shrink-0 text-body-sm font-medium text-text-primary">
-              Interior
-            </h3>
+            <h3 className="text-body-sm text-text-primary shrink-0 font-medium">Interior</h3>
 
-            <div className="h-px flex-1 bg-border/70" />
+            <div className="bg-border/70 h-px flex-1" />
           </div>
 
           <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">

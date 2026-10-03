@@ -8,11 +8,7 @@ import { MediaDropzone } from "@/src/components/inventory/add-car/media/media-dr
 import { ConfirmDialog } from "@/src/components/shared/confirm-dialog";
 import { Input } from "@/src/components/ui/input";
 import { Select } from "@/src/components/ui/select";
-import {
-  getMediaLimitLabel,
-  uploadCarMediaFile,
-  validateMediaFile,
-} from "@/src/lib/supabase/storage";
+import { getMediaLimitLabel, uploadCarMediaFile, validateMediaFile } from "@/src/lib/supabase/storage";
 import {
   createCarMediaRecord,
   deleteCarMediaRecord,
@@ -26,25 +22,14 @@ interface VideoGalleryProps {
   onVideosChange: (updater: (prev: CarMedia[]) => CarMedia[]) => void;
 }
 
-const VIDEO_TYPES = [
-  "Walkaround",
-  "Interior",
-  "Exterior",
-  "Engine Start",
-  "Exhaust",
-  "Other",
-];
+const VIDEO_TYPES = ["Walkaround", "Interior", "Exterior", "Engine Start", "Exhaust", "Other"];
 
 const VIDEO_TYPE_OPTIONS = VIDEO_TYPES.map((type) => ({
   value: type,
   label: type,
 }));
 
-export function VideoGallery({
-  carId,
-  videos,
-  onVideosChange,
-}: VideoGalleryProps) {
+export function VideoGallery({ carId, videos, onVideosChange }: VideoGalleryProps) {
   const [uploadingCount, setUploadingCount] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
@@ -116,21 +101,13 @@ export function VideoGallery({
 
     const previousSubtype = target.subtype;
 
-    onVideosChange((prev) =>
-      prev.map((video) =>
-        video.id === id ? { ...video, subtype } : video,
-      ),
-    );
+    onVideosChange((prev) => prev.map((video) => (video.id === id ? { ...video, subtype } : video)));
 
     const result = await updateCarMediaMeta(id, { subtype });
 
     if (result.error) {
       onVideosChange((prev) =>
-        prev.map((video) =>
-          video.id === id
-            ? { ...video, subtype: previousSubtype }
-            : video,
-        ),
+        prev.map((video) => (video.id === id ? { ...video, subtype: previousSubtype } : video)),
       );
 
       toast.error(result.error);
@@ -144,11 +121,7 @@ export function VideoGallery({
 
     if (!target || nextTitle === previousTitle) return;
 
-    onVideosChange((prev) =>
-      prev.map((video) =>
-        video.id === id ? { ...video, title: nextTitle } : video,
-      ),
-    );
+    onVideosChange((prev) => prev.map((video) => (video.id === id ? { ...video, title: nextTitle } : video)));
 
     const result = await updateCarMediaMeta(id, {
       title: nextTitle,
@@ -156,11 +129,7 @@ export function VideoGallery({
 
     if (result.error) {
       onVideosChange((prev) =>
-        prev.map((video) =>
-          video.id === id
-            ? { ...video, title: previousTitle }
-            : video,
-        ),
+        prev.map((video) => (video.id === id ? { ...video, title: previousTitle } : video)),
       );
 
       toast.error(result.error);
@@ -174,17 +143,16 @@ export function VideoGallery({
         <div>
           <p className="text-label">Video Gallery</p>
 
-          <p className="mt-1 text-body-sm text-text-muted">
+          <p className="text-body-sm text-text-muted mt-1">
             Add walkarounds, interior tours, engine starts, and other vehicle videos.
           </p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <Film className="size-3.5 text-text-subtle" aria-hidden="true" />
+          <Film className="text-text-subtle size-3.5" aria-hidden="true" />
 
-          <span className="text-caption tabular-nums text-text-muted">
-            {videos.length + uploadingCount}{" "}
-            {videos.length + uploadingCount === 1 ? "video" : "videos"}
+          <span className="text-caption text-text-muted tabular-nums">
+            {videos.length + uploadingCount} {videos.length + uploadingCount === 1 ? "video" : "videos"}
           </span>
         </div>
       </div>
@@ -198,20 +166,15 @@ export function VideoGallery({
 
       {/* Upload states */}
       {uploadingCount > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-border bg-card-hover/30 px-4 py-3">
-          <Loader2
-            className="size-4 shrink-0 animate-spin text-primary"
-            aria-hidden="true"
-          />
+        <div className="border-border bg-card-hover/30 flex items-center gap-3 rounded-lg border px-4 py-3">
+          <Loader2 className="text-primary size-4 shrink-0 animate-spin" aria-hidden="true" />
 
           <div className="min-w-0">
-            <p className="text-body-sm font-medium text-text-primary">
-              {uploadingCount === 1
-                ? "Uploading video..."
-                : `Uploading ${uploadingCount} videos...`}
+            <p className="text-body-sm text-text-primary font-medium">
+              {uploadingCount === 1 ? "Uploading video..." : `Uploading ${uploadingCount} videos...`}
             </p>
 
-            <p className="mt-0.5 text-caption text-text-subtle">
+            <p className="text-caption text-text-subtle mt-0.5">
               Keep this page open until the upload finishes.
             </p>
           </div>
@@ -220,19 +183,14 @@ export function VideoGallery({
 
       {/* Empty state */}
       {videos.length === 0 && uploadingCount === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-10 text-center">
-          <div className="mb-3 flex size-10 items-center justify-center rounded-full bg-card-hover">
-            <VideoOff
-              className="size-4 text-text-subtle"
-              aria-hidden="true"
-            />
+        <div className="border-border flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-10 text-center">
+          <div className="bg-card-hover mb-3 flex size-10 items-center justify-center rounded-full">
+            <VideoOff className="text-text-subtle size-4" aria-hidden="true" />
           </div>
 
-          <p className="text-body-sm font-medium text-text-primary">
-            No vehicle videos yet
-          </p>
+          <p className="text-body-sm text-text-primary font-medium">No vehicle videos yet</p>
 
-          <p className="mt-1 max-w-sm text-caption text-text-subtle">
+          <p className="text-caption text-text-subtle mt-1 max-w-sm">
             Upload a walkaround or detail video to give customers a better view of the vehicle.
           </p>
         </div>
@@ -246,12 +204,8 @@ export function VideoGallery({
               key={video.id}
               video={video}
               index={index}
-              onTitleChange={(title) =>
-                void handleTitleChange(video.id, title)
-              }
-              onTypeChange={(subtype) =>
-                void handleTypeChange(video.id, subtype)
-              }
+              onTitleChange={(title) => void handleTitleChange(video.id, title)}
+              onTypeChange={(subtype) => void handleTypeChange(video.id, subtype)}
               onDelete={() => setPendingDeleteId(video.id)}
             />
           ))}
@@ -285,7 +239,7 @@ function VideoCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
+    <div className="border-border bg-card overflow-hidden rounded-lg border">
       <div className="flex flex-col lg:flex-row">
         {/* Preview */}
         <div className="relative shrink-0 bg-black lg:w-64 xl:w-72">
@@ -296,7 +250,7 @@ function VideoCard({
             className="aspect-video size-full object-contain"
           />
 
-          <span className="pointer-events-none absolute left-2 top-2 rounded-md bg-black/60 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm">
+          <span className="pointer-events-none absolute top-2 left-2 rounded-md bg-black/60 px-2 py-1 text-[10px] font-medium text-white backdrop-blur-sm">
             Video {index + 1}
           </span>
         </div>
@@ -304,11 +258,9 @@ function VideoCard({
         {/* Metadata */}
         <div className="flex min-w-0 flex-1 flex-col gap-4 p-4">
           <div>
-            <p className="text-body-sm font-medium text-text-primary">
-              Video details
-            </p>
+            <p className="text-body-sm text-text-primary font-medium">Video details</p>
 
-            <p className="mt-0.5 text-caption text-text-subtle">
+            <p className="text-caption text-text-subtle mt-0.5">
               Add a clear title and categorize this video.
             </p>
           </div>
@@ -329,11 +281,11 @@ function VideoCard({
             />
           </div>
 
-          <div className="mt-auto flex justify-end border-t border-border/70 pt-3">
+          <div className="border-border/70 mt-auto flex justify-end border-t pt-3">
             <button
               type="button"
               onClick={onDelete}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-body-sm text-text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+              className="text-body-sm text-text-muted hover:bg-danger/10 hover:text-danger inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 transition-colors"
             >
               <Trash2 className="size-3.5" aria-hidden="true" />
               Delete video

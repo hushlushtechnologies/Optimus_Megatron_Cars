@@ -13,7 +13,13 @@ interface ManageTagsDialogProps {
   availableTags: CustomerTag[];
 }
 
-export function ManageTagsDialog({ isOpen, onClose, customerId, assignedTags, availableTags }: ManageTagsDialogProps) {
+export function ManageTagsDialog({
+  isOpen,
+  onClose,
+  customerId,
+  assignedTags,
+  availableTags,
+}: ManageTagsDialogProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Manage Tags" size="sm">
       <TagsManager

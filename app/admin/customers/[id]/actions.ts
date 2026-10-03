@@ -118,7 +118,6 @@ export async function sendAccountSetupEmail(customerId: string, email: string) {
   return { error: null };
 }
 
-
 export async function updatePrimaryRelationshipManager(customerId: string, staffId: string) {
   const permission = await assertCanManageCustomers();
   if (!permission.allowed) return { error: permission.error };
@@ -127,7 +126,9 @@ export async function updatePrimaryRelationshipManager(customerId: string, staff
 
   const { data: before } = await supabase
     .from("customer_profiles")
-    .select("primary_relationship_manager:profiles!customer_profiles_primary_relationship_manager_id_fkey(full_name)")
+    .select(
+      "primary_relationship_manager:profiles!customer_profiles_primary_relationship_manager_id_fkey(full_name)",
+    )
     .eq("id", customerId)
     .single();
   const { data: after } = await supabase.from("profiles").select("full_name").eq("id", staffId).single();
@@ -142,7 +143,8 @@ export async function updatePrimaryRelationshipManager(customerId: string, staff
     return { error: "Unable to assign Primary Relationship Manager. Please try again." };
   }
 
-  const previousName = (before?.primary_relationship_manager as unknown as { full_name: string } | null)?.full_name;
+  const previousName = (before?.primary_relationship_manager as unknown as { full_name: string } | null)
+    ?.full_name;
   await supabase.from("customer_activity").insert({
     customer_id: customerId,
     activity_type: "prm_changed",

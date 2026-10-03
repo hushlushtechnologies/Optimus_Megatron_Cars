@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-
 import { ArrowRight, Plus } from "lucide-react";
 
 import { EmptyStateVisual, type EmptyStateVisualIcon } from "@/src/components/shared/empty-state-visual";
@@ -15,17 +14,23 @@ import { cn } from "@/src/lib/utils/cn";
 
 export type EmptyStateIcon = EmptyStateVisualIcon;
 
+type EmptyStateAction =
+  | {
+      label: string;
+      href: string;
+      onClick?: never;
+    }
+  | {
+      label: string;
+      onClick: () => void;
+      href?: never;
+    };
+
 interface EmptyStateProps {
   title: string;
-
   description?: string;
-
   icon?: EmptyStateIcon;
-
-  action?: {
-    label: string;
-    href: string;
-  };
+  action?: EmptyStateAction;
 
   /**
    * Controls the amount of vertical space.
@@ -55,13 +60,24 @@ export function EmptyState({
 }: EmptyStateProps) {
   const router = useRouter();
 
+  const handleAction = () => {
+    if (!action) return;
+
+    if ("onClick" in action && action.onClick) {
+      action.onClick();
+      return;
+    }
+
+    if ("href" in action) {
+      router.push(action.href);
+    }
+  };
+
   return (
     <div
       className={cn(
-        `relative flex min-w-0 flex-col items-center justify-center overflow-hidden text-center`,
-
-        size === "compact" ? "px-5 py-10" : `min-h-[360px] px-5 py-12 sm:px-8 sm:py-14`,
-
+        "relative flex min-w-0 flex-col items-center justify-center overflow-hidden text-center",
+        size === "compact" ? "px-5 py-10" : "min-h-[360px] px-5 py-12 sm:px-8 sm:py-14",
         className,
       )}
     >
@@ -79,21 +95,13 @@ export function EmptyState({
       =================================================== */}
 
       <div className="relative z-10 flex w-full max-w-[390px] flex-col items-center">
-        {/* Illustration */}
-
         <EmptyStateVisual icon={icon} className={cn(size === "compact" && "scale-90")} />
 
         {/* ===============================================
             COPY
         =============================================== */}
 
-        <div
-          className={cn(
-            `flex flex-col items-center`,
-
-            size === "compact" ? "mt-1" : "mt-2",
-          )}
-        >
+        <div className={cn("flex flex-col items-center", size === "compact" ? "mt-1" : "mt-2")}>
           <h3 className="text-text-primary text-[14px] leading-5 font-semibold tracking-[-0.01em] sm:text-[15px]">
             {title}
           </h3>
@@ -114,7 +122,7 @@ export function EmptyState({
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => router.push(action.href)}
+              onClick={handleAction}
               className="group border-border h-9 rounded-md border px-3.5 text-[11px] font-medium"
             >
               <Plus className="text-text-muted mr-1.5 size-3.5" strokeWidth={1.8} aria-hidden="true" />

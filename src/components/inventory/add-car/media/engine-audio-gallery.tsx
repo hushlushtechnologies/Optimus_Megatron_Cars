@@ -8,11 +8,7 @@ import { MediaDropzone } from "@/src/components/inventory/add-car/media/media-dr
 import { ConfirmDialog } from "@/src/components/shared/confirm-dialog";
 import { Input } from "@/src/components/ui/input";
 import { Select } from "@/src/components/ui/select";
-import {
-  getMediaLimitLabel,
-  uploadCarMediaFile,
-  validateMediaFile,
-} from "@/src/lib/supabase/storage";
+import { getMediaLimitLabel, uploadCarMediaFile, validateMediaFile } from "@/src/lib/supabase/storage";
 import {
   createCarMediaRecord,
   deleteCarMediaRecord,
@@ -33,11 +29,7 @@ const AUDIO_TYPE_OPTIONS = AUDIO_TYPES.map((type) => ({
   label: type,
 }));
 
-export function EngineAudioGallery({
-  carId,
-  audioClips,
-  onAudioChange,
-}: EngineAudioGalleryProps) {
+export function EngineAudioGallery({ carId, audioClips, onAudioChange }: EngineAudioGalleryProps) {
   const [uploadingCount, setUploadingCount] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
@@ -109,17 +101,13 @@ export function EngineAudioGallery({
 
     const previousSubtype = target.subtype;
 
-    onAudioChange((prev) =>
-      prev.map((clip) => (clip.id === id ? { ...clip, subtype } : clip)),
-    );
+    onAudioChange((prev) => prev.map((clip) => (clip.id === id ? { ...clip, subtype } : clip)));
 
     const result = await updateCarMediaMeta(id, { subtype });
 
     if (result.error) {
       onAudioChange((prev) =>
-        prev.map((clip) =>
-          clip.id === id ? { ...clip, subtype: previousSubtype } : clip,
-        ),
+        prev.map((clip) => (clip.id === id ? { ...clip, subtype: previousSubtype } : clip)),
       );
 
       toast.error(result.error);
@@ -133,17 +121,13 @@ export function EngineAudioGallery({
 
     if (!target || nextTitle === previousTitle) return;
 
-    onAudioChange((prev) =>
-      prev.map((clip) => (clip.id === id ? { ...clip, title: nextTitle } : clip)),
-    );
+    onAudioChange((prev) => prev.map((clip) => (clip.id === id ? { ...clip, title: nextTitle } : clip)));
 
     const result = await updateCarMediaMeta(id, { title: nextTitle });
 
     if (result.error) {
       onAudioChange((prev) =>
-        prev.map((clip) =>
-          clip.id === id ? { ...clip, title: previousTitle } : clip,
-        ),
+        prev.map((clip) => (clip.id === id ? { ...clip, title: previousTitle } : clip)),
       );
 
       toast.error(result.error);
@@ -159,15 +143,15 @@ export function EngineAudioGallery({
         <div>
           <p className="text-label">Engine Sound Experience</p>
 
-          <p className="mt-1 text-body-sm text-text-muted">
+          <p className="text-body-sm text-text-muted mt-1">
             Add authentic engine, exhaust, and cold-start recordings for this vehicle.
           </p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <Headphones className="size-3.5 text-text-subtle" aria-hidden="true" />
+          <Headphones className="text-text-subtle size-3.5" aria-hidden="true" />
 
-          <span className="text-caption tabular-nums text-text-muted">
+          <span className="text-caption text-text-muted tabular-nums">
             {totalCount} {totalCount === 1 ? "clip" : "clips"}
           </span>
         </div>
@@ -182,17 +166,17 @@ export function EngineAudioGallery({
 
       {/* Upload state */}
       {uploadingCount > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-border bg-card-hover/30 px-4 py-3">
-          <Loader2 className="size-4 shrink-0 animate-spin text-primary" aria-hidden="true" />
+        <div className="border-border bg-card-hover/30 flex items-center gap-3 rounded-lg border px-4 py-3">
+          <Loader2 className="text-primary size-4 shrink-0 animate-spin" aria-hidden="true" />
 
           <div className="min-w-0">
-            <p className="text-body-sm font-medium text-text-primary">
+            <p className="text-body-sm text-text-primary font-medium">
               {uploadingCount === 1
                 ? "Uploading audio clip..."
                 : `Uploading ${uploadingCount} audio clips...`}
             </p>
 
-            <p className="mt-0.5 text-caption text-text-subtle">
+            <p className="text-caption text-text-subtle mt-0.5">
               Keep this page open until the upload finishes.
             </p>
           </div>
@@ -201,16 +185,14 @@ export function EngineAudioGallery({
 
       {/* Empty state */}
       {audioClips.length === 0 && uploadingCount === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-10 text-center">
-          <div className="mb-3 flex size-10 items-center justify-center rounded-full bg-card-hover">
-            <Music className="size-4 text-text-subtle" aria-hidden="true" />
+        <div className="border-border flex flex-col items-center justify-center rounded-lg border border-dashed px-6 py-10 text-center">
+          <div className="bg-card-hover mb-3 flex size-10 items-center justify-center rounded-full">
+            <Music className="text-text-subtle size-4" aria-hidden="true" />
           </div>
 
-          <p className="text-body-sm font-medium text-text-primary">
-            No engine audio yet
-          </p>
+          <p className="text-body-sm text-text-primary font-medium">No engine audio yet</p>
 
-          <p className="mt-1 max-w-sm text-caption text-text-subtle">
+          <p className="text-caption text-text-subtle mt-1 max-w-sm">
             Upload a cold start, rev, or exhaust recording to capture the sound of the vehicle.
           </p>
         </div>
@@ -259,21 +241,21 @@ function AudioClipCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="border-border bg-card rounded-lg border p-4">
       <div className="flex flex-col gap-4">
         {/* Clip header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
               <Volume2 className="size-4" aria-hidden="true" />
             </div>
 
             <div className="min-w-0">
-              <p className="truncate text-body-sm font-medium text-text-primary">
+              <p className="text-body-sm text-text-primary truncate font-medium">
                 {clip.title?.trim() || `Audio clip ${index + 1}`}
               </p>
 
-              <p className="mt-0.5 text-caption text-text-subtle">
+              <p className="text-caption text-text-subtle mt-0.5">
                 {clip.subtype ?? "Cold Start"} · Clip {index + 1}
               </p>
             </div>
@@ -283,20 +265,15 @@ function AudioClipCard({
             type="button"
             aria-label="Delete audio clip"
             onClick={onDelete}
-            className="flex size-8 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-danger/10 hover:text-danger"
+            className="text-text-muted hover:bg-danger/10 hover:text-danger flex size-8 shrink-0 items-center justify-center rounded-md transition-colors"
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
           </button>
         </div>
 
         {/* Player */}
-        <div className="rounded-lg border border-border/70 bg-card-hover/30 px-3 py-2.5">
-          <audio
-            src={clip.url}
-            controls
-            preload="metadata"
-            className="block h-10 w-full"
-          />
+        <div className="border-border/70 bg-card-hover/30 rounded-lg border px-3 py-2.5">
+          <audio src={clip.url} controls preload="metadata" className="block h-10 w-full" />
         </div>
 
         {/* Metadata */}

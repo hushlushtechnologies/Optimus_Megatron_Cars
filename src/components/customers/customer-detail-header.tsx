@@ -5,7 +5,10 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Pencil, StickyNote, Tag, MoreVertical, MapPin, Mail, Phone } from "lucide-react";
 import { CustomerAvatar } from "@/src/components/customers/customer-avatar";
-import { CustomerLifecycleBadge, CustomerAccountStatusBadge } from "@/src/components/customers/customer-status-badge";
+import {
+  CustomerLifecycleBadge,
+  CustomerAccountStatusBadge,
+} from "@/src/components/customers/customer-status-badge";
 import { CustomerSourceBadge } from "@/src/components/customers/customer-source-badge";
 import { ContactCustomerMenu } from "@/src/components/customers/contact-customer-menu";
 import { AddNoteDialog } from "@/src/components/customers/add-note-dialog";
@@ -15,7 +18,6 @@ import { Dropdown, DropdownTrigger, DropdownContent } from "@/src/components/ui/
 import { IconButton } from "@/src/components/ui/icon-button";
 import type { CustomerDetail } from "@/src/lib/supabase/customer-detail-queries";
 import type { CustomerTag } from "@/src/lib/supabase/customer-lookups";
-
 
 interface CustomerDetailHeaderProps {
   customer: CustomerDetail;
@@ -39,22 +41,40 @@ export function CustomerDetailHeader({ customer, assignedTags, availableTags }: 
             <div className="mt-2 flex flex-wrap gap-1.5">
               <CustomerLifecycleBadge status={customer.lifecycle_status} />
               <CustomerAccountStatusBadge status={customer.account_status} />
-              <CustomerSourceBadge sourceName={customer.source?.name ?? null} sourceDetail={customer.source_detail} />
+              <CustomerSourceBadge
+                sourceName={customer.source?.name ?? null}
+                sourceDetail={customer.source_detail}
+              />
               {assignedTags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="inline-flex items-center rounded-full border px-2.5 py-1 text-body-sm"
-                  style={{ backgroundColor: `${tag.color_hex}1A`, borderColor: `${tag.color_hex}33`, color: tag.color_hex }}
+                  className="text-body-sm inline-flex items-center rounded-full border px-2.5 py-1"
+                  style={{
+                    backgroundColor: `${tag.color_hex}1A`,
+                    borderColor: `${tag.color_hex}33`,
+                    color: tag.color_hex,
+                  }}
                 >
                   {tag.name}
                 </span>
               ))}
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-text-muted">
-              <span className="flex items-center gap-1"><Mail className="size-3.5" aria-hidden="true" />{customer.email}</span>
-              <span className="flex items-center gap-1"><Phone className="size-3.5" aria-hidden="true" />{customer.phone}</span>
-              {customer.location && <span className="flex items-center gap-1"><MapPin className="size-3.5" aria-hidden="true" />{customer.location.name}</span>}
+            <div className="text-caption text-text-muted mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="flex items-center gap-1">
+                <Mail className="size-3.5" aria-hidden="true" />
+                {customer.email}
+              </span>
+              <span className="flex items-center gap-1">
+                <Phone className="size-3.5" aria-hidden="true" />
+                {customer.phone}
+              </span>
+              {customer.location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="size-3.5" aria-hidden="true" />
+                  {customer.location.name}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -63,11 +83,19 @@ export function CustomerDetailHeader({ customer, assignedTags, availableTags }: 
           <Link href={`/admin/customers/${customer.id}/edit`}>
             <Button leftIcon={<Pencil className="size-4" />}>Edit Customer</Button>
           </Link>
-          <Button variant="outline" leftIcon={<StickyNote className="size-4" />} onClick={() => setAddNoteOpen(true)}>
+          <Button
+            variant="outline"
+            leftIcon={<StickyNote className="size-4" />}
+            onClick={() => setAddNoteOpen(true)}
+          >
             Add Note
           </Button>
           <ContactCustomerMenu email={customer.email} phone={customer.phone} />
-          <Button variant="outline" leftIcon={<Tag className="size-4" />} onClick={() => setManageTagsOpen(true)}>
+          <Button
+            variant="outline"
+            leftIcon={<Tag className="size-4" />}
+            onClick={() => setManageTagsOpen(true)}
+          >
             Manage Tags
           </Button>
 
@@ -82,7 +110,7 @@ export function CustomerDetailHeader({ customer, assignedTags, availableTags }: 
                 type="button"
                 role="menuitem"
                 onClick={() => toast.info("Export arrives in Sprint 3 Phase 17")}
-                className="flex w-full items-center px-4 py-2 text-left text-body-sm text-text-primary hover:bg-card-hover"
+                className="text-body-sm text-text-primary hover:bg-card-hover flex w-full items-center px-4 py-2 text-left"
               >
                 Export
               </button>
@@ -90,7 +118,7 @@ export function CustomerDetailHeader({ customer, assignedTags, availableTags }: 
                 type="button"
                 role="menuitem"
                 onClick={() => toast.info("Archive arrives in Sprint 3 Phase 16")}
-                className="flex w-full items-center px-4 py-2 text-left text-body-sm text-text-primary hover:bg-card-hover"
+                className="text-body-sm text-text-primary hover:bg-card-hover flex w-full items-center px-4 py-2 text-left"
               >
                 Archive
               </button>
@@ -98,7 +126,7 @@ export function CustomerDetailHeader({ customer, assignedTags, availableTags }: 
                 type="button"
                 role="menuitem"
                 onClick={() => toast.info("Delete arrives in Sprint 3 Phase 16")}
-                className="flex w-full items-center px-4 py-2 text-left text-body-sm text-red-400 hover:bg-card-hover"
+                className="text-body-sm hover:bg-card-hover flex w-full items-center px-4 py-2 text-left text-red-400"
               >
                 Delete
               </button>

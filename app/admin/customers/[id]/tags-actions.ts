@@ -9,7 +9,9 @@ export async function addCustomerTag(customerId: string, tagId: string) {
   if (!permission.allowed) return { error: permission.error };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("customer_tag_links").insert({ customer_id: customerId, tag_id: tagId });
+  const { error } = await supabase
+    .from("customer_tag_links")
+    .insert({ customer_id: customerId, tag_id: tagId });
 
   if (error) {
     console.error("addCustomerTag error:", error);
