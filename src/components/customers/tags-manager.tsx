@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { X, Plus } from "lucide-react";
-import { StatusBadge } from "@/src/components/ui/status-badge";
+import { Plus } from "lucide-react";
+
+import { CustomerTagPill } from "@/src/components/customers/customer-tag-pill";
 import { Dropdown, DropdownTrigger, DropdownContent } from "@/src/components/ui/dropdown";
 import { Button } from "@/src/components/ui/button";
 import type { CustomerTag } from "@/src/lib/supabase/customer-lookups";
@@ -49,17 +50,7 @@ export function TagsManager({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {assignedTags.map((tag) => (
-        <span key={tag.id} className="inline-flex items-center gap-1">
-          <StatusBadge label={tag.name} colorHex={tag.color_hex} />
-          <button
-            type="button"
-            aria-label={`Remove tag ${tag.name}`}
-            onClick={() => handleRemove(tag.id)}
-            className="text-text-subtle hover:text-red-400"
-          >
-            <X className="size-3" aria-hidden="true" />
-          </button>
-        </span>
+        <CustomerTagPill key={tag.id} tag={tag} onRemove={() => handleRemove(tag.id)} />
       ))}
 
       {remainingTags.length > 0 && (

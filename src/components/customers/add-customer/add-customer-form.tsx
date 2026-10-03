@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
+import { CustomerTagPill } from "@/src/components/customers/customer-tag-pill";
 import { Card } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
 import { Textarea } from "@/src/components/ui/textarea";
@@ -182,25 +182,14 @@ export function AddCustomerForm({
         <div className="sm:col-span-2">
           <p className="text-label mb-2">Tags</p>
           <div className="flex flex-wrap gap-2">
-            {lookups.tags.map((tag) => {
-              const isSelected = selectedTagIds.includes(tag.id);
-              return (
-                <button
-                  key={tag.id}
-                  type="button"
-                  onClick={() => toggleTag(tag.id)}
-                  className="text-body-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors"
-                  style={{
-                    backgroundColor: isSelected ? `${tag.color_hex}1A` : "transparent",
-                    borderColor: isSelected ? `${tag.color_hex}66` : "var(--omc-border)",
-                    color: isSelected ? tag.color_hex : "var(--omc-text-muted)",
-                  }}
-                >
-                  {isSelected && <Check className="size-3" aria-hidden="true" />}
-                  {tag.name}
-                </button>
-              );
-            })}
+            {lookups.tags.map((tag) => (
+              <CustomerTagPill
+                key={tag.id}
+                tag={tag}
+                selected={selectedTagIds.includes(tag.id)}
+                onClick={() => toggleTag(tag.id)}
+              />
+            ))}
           </div>
         </div>
 

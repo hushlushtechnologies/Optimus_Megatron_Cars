@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { X, Check } from "lucide-react";
+import { CustomerTagPill } from "@/src/components/customers/customer-tag-pill";
+import { X } from "lucide-react";
 import { useFocusTrap } from "@/src/hooks/use-focus-trap";
 import { Button } from "@/src/components/ui/button";
 import { IconButton } from "@/src/components/ui/icon-button";
@@ -166,25 +167,14 @@ export function CustomerFilterDrawer({
                 <div>
                   <p className="text-label mb-2">Tags</p>
                   <div className="flex flex-wrap gap-2">
-                    {lookups.tags.map((tag) => {
-                      const isSelected = draftTags.includes(tag.id);
-                      return (
-                        <button
-                          key={tag.id}
-                          type="button"
-                          onClick={() => toggleTag(tag.id)}
-                          className="text-body-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors"
-                          style={{
-                            backgroundColor: isSelected ? `${tag.color_hex}1A` : "transparent",
-                            borderColor: isSelected ? `${tag.color_hex}66` : "var(--omc-border)",
-                            color: isSelected ? tag.color_hex : "var(--omc-text-muted)",
-                          }}
-                        >
-                          {isSelected && <Check className="size-3" aria-hidden="true" />}
-                          {tag.name}
-                        </button>
-                      );
-                    })}
+                    {lookups.tags.map((tag) => (
+                      <CustomerTagPill
+                        key={tag.id}
+                        tag={tag}
+                        selected={draftTags.includes(tag.id)}
+                        onClick={() => toggleTag(tag.id)}
+                      />
+                    ))}
                   </div>
                 </div>
 

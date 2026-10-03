@@ -10,6 +10,7 @@ import {
   CustomerAccountStatusBadge,
 } from "@/src/components/customers/customer-status-badge";
 import { CustomerSourceBadge } from "@/src/components/customers/customer-source-badge";
+import { CustomerTagPill } from "@/src/components/customers/customer-tag-pill";
 import { ContactCustomerMenu } from "@/src/components/customers/contact-customer-menu";
 import { AddNoteDialog } from "@/src/components/customers/add-note-dialog";
 import { ManageTagsDialog } from "@/src/components/customers/manage-tags-dialog";
@@ -46,17 +47,7 @@ export function CustomerDetailHeader({ customer, assignedTags, availableTags }: 
                 sourceDetail={customer.source_detail}
               />
               {assignedTags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="text-body-sm inline-flex items-center rounded-full border px-2.5 py-1"
-                  style={{
-                    backgroundColor: `${tag.color_hex}1A`,
-                    borderColor: `${tag.color_hex}33`,
-                    color: tag.color_hex,
-                  }}
-                >
-                  {tag.name}
-                </span>
+                <CustomerTagPill key={tag.id} tag={tag} />
               ))}
             </div>
 

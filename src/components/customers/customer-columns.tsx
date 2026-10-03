@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { Eye, Pencil, Archive, Trash2, MoreVertical } from "lucide-react";
+import { CustomerTagPill } from "@/src/components/customers/customer-tag-pill";
 import { formatDistanceToNow } from "date-fns";
 import { CustomerAvatar } from "@/src/components/customers/customer-avatar";
 import {
@@ -104,6 +105,23 @@ export function getCustomerColumns({
       cell: ({ row }) => (
         <CustomerAccountStatusBadge status={row.original.account_status as AccountStatusValue} />
       ),
+    }),
+    columnHelper.display({
+      id: "tags",
+      header: "Tags",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const tags = row.original.tags;
+        if (tags.length === 0) return <span className="text-text-subtle">—</span>;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {tags.slice(0, 2).map((tag) => (
+              <CustomerTagPill key={tag.id} tag={tag} className="text-caption px-1.5 py-0.5" />
+            ))}
+            {tags.length > 2 && <span className="text-caption text-text-subtle">+{tags.length - 2}</span>}
+          </div>
+        );
+      },
     }),
     columnHelper.accessor("activeDealsCount", {
       id: "active_deals",
@@ -207,6 +225,7 @@ export const DEFAULT_CUSTOMER_COLUMN_ORDER = [
   "location",
   "lifecycle_status",
   "account_status",
+  "tags",
   "active_deals",
   "purchased_count",
   "prm",
@@ -224,6 +243,7 @@ export const DEFAULT_CUSTOMER_COLUMN_VISIBILITY: Record<string, boolean> = {
   phone: true,
   source: false,
   location: true,
+  tags: false,
   lifecycle_status: true,
   account_status: false,
   active_deals: true,
@@ -236,6 +256,7 @@ export const DEFAULT_CUSTOMER_COLUMN_VISIBILITY: Record<string, boolean> = {
 
 export const CUSTOMIZABLE_CUSTOMER_COLUMNS = [
   { id: "avatar", label: "Avatar" },
+  { id: "tags", label: "Tags" },
   { id: "customer_number", label: "Customer ID" },
   { id: "email", label: "Email" },
   { id: "phone", label: "Phone" },
