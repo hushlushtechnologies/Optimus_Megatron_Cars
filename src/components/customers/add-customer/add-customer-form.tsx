@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { CustomerTagPill } from "@/src/components/customers/customer-tag-pill";
@@ -53,7 +53,7 @@ export function AddCustomerForm({
     register,
     control,
     handleSubmit,
-    watch,
+
     formState: { errors, isDirty },
   } = useForm<AddCustomerValues>({
     resolver: zodResolver(addCustomerSchema),
@@ -62,7 +62,10 @@ export function AddCustomerForm({
 
   useUnsavedChangesWarning(isDirty);
 
-  const sourceId = watch("source_id");
+  const sourceId = useWatch({
+    control,
+    name: "source_id",
+  });
   const showSourceDetail = sourcesWithDetail[sourceId] ?? false;
 
   const toggleTag = (tagId: string) => {

@@ -38,6 +38,7 @@ import { ActivityTab } from "@/src/components/customers/profile-tabs/activity-ta
 import { AuditTrailTab } from "@/src/components/customers/profile-tabs/audit-trail-tab";
 
 import { FutureModuleTab } from "@/src/components/customers/profile-tabs/future-module-tab";
+import { CommunicationsTab } from "@/src/components/customers/profile-tabs/communications-tab";
 
 import { VehiclesTab } from "@/src/components/customers/profile-tabs/vehicles-tab";
 
@@ -210,6 +211,10 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
 
             <TabPanel id="wishlist">
               <FutureModuleTab icon={Heart} title="This customer's wishlist is empty" />
+            </TabPanel>
+
+            <TabPanel id="communications">
+              <CommunicationsTab customerId={id} />
             </TabPanel>
 
             {/* ===============================================

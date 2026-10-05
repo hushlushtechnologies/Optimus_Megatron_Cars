@@ -19,7 +19,13 @@ export interface CustomerMetrics {
   inactive: number;
 }
 
-export async function getCustomerMetrics(): Promise<CustomerMetrics> {
+interface GetCustomerMetricsParams {
+  archived?: boolean;
+}
+
+export async function getCustomerMetrics({
+  archived = false,
+}: GetCustomerMetricsParams = {}): Promise<CustomerMetrics> {
   const supabase = await createClient();
 
   const now = new Date();
@@ -29,57 +35,104 @@ export async function getCustomerMetrics(): Promise<CustomerMetrics> {
 
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [totalRes, activeRes, newTodayRes, newThisMonthRes, inactiveRes, activeDealsRes] = await Promise.all([
-    supabase.from("customer_profiles").select("*", {
+  /* ---------------------------------------------------------
+     BUILD METRIC QUERIES
+  --------------------------------------------------------- */
+
+  const totalQuery = supabase.from("customer_profiles").select("*", {
+    count: "exact",
+    head: true,
+  });
+
+  const activeQuery = supabase
+    .from("customer_profiles")
+    .select("*", {
       count: "exact",
       head: true,
-    }),
+    })
+    .eq("lifecycle_status", "Active");
 
-    supabase
-      .from("customer_profiles")
-      .select("*", {
-        count: "exact",
-        head: true,
-      })
-      .eq("lifecycle_status", "Active"),
+  const newTodayQuery = supabase
+    .from("customer_profiles")
+    .select("*", {
+      count: "exact",
+      head: true,
+    })
+    .gte("created_at", startOfToday.toISOString());
 
-    supabase
-      .from("customer_profiles")
-      .select("*", {
-        count: "exact",
-        head: true,
-      })
-      .gte("created_at", startOfToday.toISOString()),
+  const newThisMonthQuery = supabase
+    .from("customer_profiles")
+    .select("*", {
+      count: "exact",
+      head: true,
+    })
+    .gte("created_at", startOfMonth.toISOString());
 
-    supabase
-      .from("customer_profiles")
-      .select("*", {
-        count: "exact",
-        head: true,
-      })
-      .gte("created_at", startOfMonth.toISOString()),
+  const inactiveQuery = supabase
+    .from("customer_profiles")
+    .select("*", {
+      count: "exact",
+      head: true,
+    })
+    .eq("lifecycle_status", "Inactive");
 
-    supabase
-      .from("customer_profiles")
-      .select("*", {
-        count: "exact",
-        head: true,
-      })
-      .eq("lifecycle_status", "Inactive"),
+  /*
+   * We also get the IDs in the current archive scope.
+   *
+   * This allows "withActiveDeals" to respect
+   * active vs archived customer view.
+   */
+  const scopedCustomerIdsQuery = supabase.from("customer_profiles").select("id");
 
-    supabase.from("customer_vehicle_relations").select("customer_id").eq("relationship_status", "Active"),
-  ]);
+  const [totalRes, activeRes, newTodayRes, newThisMonthRes, inactiveRes, activeDealsRes, scopedCustomersRes] =
+    await Promise.all([
+      archived ? totalQuery.not("archived_at", "is", null) : totalQuery.is("archived_at", null),
 
-  const withActiveDeals = new Set((activeDealsRes.data ?? []).map((row) => row.customer_id)).size;
+      archived ? activeQuery.not("archived_at", "is", null) : activeQuery.is("archived_at", null),
+
+      archived ? newTodayQuery.not("archived_at", "is", null) : newTodayQuery.is("archived_at", null),
+
+      archived ? newThisMonthQuery.not("archived_at", "is", null) : newThisMonthQuery.is("archived_at", null),
+
+      archived ? inactiveQuery.not("archived_at", "is", null) : inactiveQuery.is("archived_at", null),
+
+      supabase.from("customer_vehicle_relations").select("customer_id").eq("relationship_status", "Active"),
+
+      archived
+        ? scopedCustomerIdsQuery.not("archived_at", "is", null)
+        : scopedCustomerIdsQuery.is("archived_at", null),
+    ]);
+
+  /* ---------------------------------------------------------
+     ACTIVE DEAL COUNT
+  --------------------------------------------------------- */
+
+  const scopedCustomerIds = new Set((scopedCustomersRes.data ?? []).map((customer) => customer.id));
+
+  const withActiveDeals = new Set(
+    (activeDealsRes.data ?? [])
+      .filter((relation) => scopedCustomerIds.has(relation.customer_id))
+      .map((relation) => relation.customer_id),
+  ).size;
+
+  /* ---------------------------------------------------------
+     7 DAY TREND
+  --------------------------------------------------------- */
 
   const sevenDaysAgo = new Date(startOfToday);
 
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
 
-  const { data: recentCustomers, error: recentCustomersError } = await supabase
+  let recentCustomersQuery = supabase
     .from("customer_profiles")
     .select("created_at")
     .gte("created_at", sevenDaysAgo.toISOString());
+
+  recentCustomersQuery = archived
+    ? recentCustomersQuery.not("archived_at", "is", null)
+    : recentCustomersQuery.is("archived_at", null);
+
+  const { data: recentCustomers, error: recentCustomersError } = await recentCustomersQuery;
 
   if (recentCustomersError) {
     console.error(
@@ -91,17 +144,22 @@ hint: ${recentCustomersError.hint ?? "none"}`,
     );
   }
 
-  const totalTrend = Array.from({ length: 7 }, (_, index) => {
-    const day = new Date(sevenDaysAgo);
+  const totalTrend = Array.from(
+    {
+      length: 7,
+    },
+    (_, index) => {
+      const day = new Date(sevenDaysAgo);
 
-    day.setDate(day.getDate() + index);
+      day.setDate(day.getDate() + index);
 
-    const dayKey = day.toDateString();
+      const dayKey = day.toDateString();
 
-    return (recentCustomers ?? []).filter(
-      (customer) => new Date(customer.created_at).toDateString() === dayKey,
-    ).length;
-  });
+      return (recentCustomers ?? []).filter(
+        (customer) => new Date(customer.created_at).toDateString() === dayKey,
+      ).length;
+    },
+  );
 
   const totalChange = (totalTrend[6] ?? 0) - (totalTrend[5] ?? 0);
 
@@ -141,6 +199,8 @@ export interface CustomerRow {
   created_at: string;
   last_activity_at: string | null;
 
+  archived_at: string | null;
+
   profile_photo_url: string | null;
 
   location: {
@@ -171,6 +231,8 @@ interface GetCustomerRowsParams {
   page?: number;
   pageSize?: number;
   filters?: CustomerFilters;
+
+  archived?: boolean;
 }
 
 /* =========================================================
@@ -225,7 +287,10 @@ interface RawCustomerRow {
   account_status: string;
 
   created_at: string;
+
   last_activity_at: string | null;
+
+  archived_at: string | null;
 
   profile_photo_url: string | null;
 
@@ -257,7 +322,9 @@ interface CustomerTagLinkRow {
 
 interface CustomerVehicleRelationRow {
   customer_id: string;
+
   relationship_type: string | null;
+
   relationship_status: string | null;
 }
 
@@ -271,17 +338,13 @@ export async function getCustomerRows({
   page = 1,
   pageSize = 25,
   filters = {},
+  archived = false,
 }: GetCustomerRowsParams) {
   const supabase = await createClient();
 
-  /*
-   * Junction-table filters first resolve
-   * into customer ID lists.
-   *
-   * Multiple filters are intersected,
-   * meaning customers must satisfy all
-   * active junction-table filters.
-   */
+  /* =========================================================
+     JUNCTION FILTERS
+  ========================================================= */
 
   const idFilterSets: string[][] = [];
 
@@ -357,21 +420,22 @@ hint: ${error.hint ?? "none"}`,
   }
 
   /*
-   * If one active junction filter
-   * matched zero customers, the full
-   * result must be empty.
+   * If any active junction filter
+   * matches zero customers, there
+   * cannot be a final result.
    */
 
   if (idFilterSets.some((set) => set.length === 0)) {
     return {
       rows: [] as CustomerRow[],
+
       totalCount: 0,
     };
   }
 
-  /*
-   * Intersect all customer ID sets.
-   */
+  /* ---------------------------------------------------------
+     INTERSECT FILTER IDS
+  --------------------------------------------------------- */
 
   const allowedIds =
     idFilterSets.length > 0
@@ -384,26 +448,33 @@ hint: ${error.hint ?? "none"}`,
 
   let query = supabase.from("customer_profiles").select(
     `
-        id,
-        customer_number,
-        full_name,
-        email,
-        phone,
-        lifecycle_status,
-        account_status,
-        created_at,
-        last_activity_at,
-        profile_photo_url,
-        location:locations(name),
-        source:customer_sources(name),
-        primary_relationship_manager:profiles!customer_profiles_primary_relationship_manager_profile_fkey(
-          full_name
-        )
-      `,
+          id,
+          customer_number,
+          full_name,
+          email,
+          phone,
+          lifecycle_status,
+          account_status,
+          created_at,
+          last_activity_at,
+          archived_at,
+          profile_photo_url,
+          location:locations(name),
+          source:customer_sources(name),
+          primary_relationship_manager:profiles!customer_profiles_primary_relationship_manager_profile_fkey(
+            full_name
+          )
+        `,
     {
       count: "exact",
     },
   );
+
+  /* ---------------------------------------------------------
+     ARCHIVED / ACTIVE VIEW
+  --------------------------------------------------------- */
+
+  query = archived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
 
   /* ---------------------------------------------------------
      ALLOWED IDS
@@ -424,7 +495,7 @@ hint: ${error.hint ?? "none"}`,
   }
 
   /* ---------------------------------------------------------
-     COLUMN FILTERS
+     FILTERS
   --------------------------------------------------------- */
 
   if (filters.status) {
@@ -494,12 +565,13 @@ hint: ${error.hint ?? "none"}`,
 
     return {
       rows: [] as CustomerRow[],
+
       totalCount: 0,
     };
   }
 
   /* =========================================================
-     NORMALIZE CUSTOMER ROWS
+     NORMALIZE ROWS
   ========================================================= */
 
   const rawRows = (data ?? []) as unknown as RawCustomerRow[];
@@ -507,7 +579,7 @@ hint: ${error.hint ?? "none"}`,
   const customerIds = rawRows.map((customer) => customer.id);
 
   /* =========================================================
-     DEAL + PURCHASE COUNTS
+     DEAL COUNTS
   ========================================================= */
 
   const dealCounts = new Map<
@@ -519,15 +591,10 @@ hint: ${error.hint ?? "none"}`,
   >();
 
   /* =========================================================
-     CUSTOMER TAGS
+     TAGS
   ========================================================= */
 
   const tagsByCustomer = new Map<string, CustomerListTag[]>();
-
-  /*
-   * Only query related tables if
-   * current page contains customers.
-   */
 
   if (customerIds.length > 0) {
     const [relationsResult, tagsResult] = await Promise.all([
@@ -535,10 +602,10 @@ hint: ${error.hint ?? "none"}`,
         .from("customer_vehicle_relations")
         .select(
           `
-            customer_id,
-            relationship_type,
-            relationship_status
-          `,
+              customer_id,
+              relationship_type,
+              relationship_status
+            `,
         )
         .in("customer_id", customerIds),
 
@@ -546,19 +613,19 @@ hint: ${error.hint ?? "none"}`,
         .from("customer_tag_links")
         .select(
           `
-            customer_id,
-            tag:customer_tags(
-              id,
-              name,
-              color_hex
-            )
-          `,
+              customer_id,
+              tag:customer_tags(
+                id,
+                name,
+                color_hex
+              )
+            `,
         )
         .in("customer_id", customerIds),
     ]);
 
     /* -------------------------------------------------------
-       DEAL RELATIONS
+       VEHICLE RELATIONS
     ------------------------------------------------------- */
 
     if (relationsResult.error) {
@@ -610,19 +677,6 @@ hint: ${tagsResult.error.hint ?? "none"}`,
       if (!row.tag) {
         continue;
       }
-
-      /*
-       * Supabase may infer an embedded
-       * relation as either:
-       *
-       * tag: {...}
-       *
-       * or:
-       *
-       * tag: [{...}]
-       *
-       * Normalize both forms.
-       */
 
       const tags = Array.isArray(row.tag) ? row.tag : [row.tag];
 

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/src/lib/supabase/server";
 import { assertCanManageCustomers } from "@/src/lib/supabase/customer-permissions";
 
-import type { RelationshipType, RelationshipStatus } from "@/src/lib/types/customer";
+import type { RelationshipType } from "@/src/lib/types/customer";
 
 /* =========================================================
    TYPES
@@ -98,88 +98,71 @@ export async function addVehicleRelation(
 
 export async function assignRelationStaff(relationId: string, staffId: string, customerId: string) {
   const permission = await assertCanManageCustomers();
-
-  if (!permission.allowed) {
-    return { error: permission.error };
-  }
+  if (!permission.allowed) return { error: permission.error };
 
   const supabase = await createClient();
-
   const { data: before } = await supabase
     .from("customer_vehicle_relations")
-    .select("assigned_staff_id")
+    .select(
+      "assigned_staff_id, assigned_staff:profiles!customer_vehicle_relations_assigned_staff_id_fkey(full_name)",
+    )
+    .eq("id", relationId)
+    .single();
+  const { data: newStaff } = await supabase.from("profiles").select("full_name").eq("id", staffId).single();
+
+  const { error } = await supabase
+    .from("customer_vehicle_relations")
+    .update({ assigned_staff_id: staffId })
+    .eq("id", relationId);
+  if (error) {
+    console.error("assignRelationStaff error:", error);
+    return { error: "Unable to assign staff. Please try again." };
+  }
+
+  const previousName = (before?.assigned_staff as unknown as { full_name: string } | null)?.full_name ?? null;
+  await supabase.from("customer_activity").insert({
+    customer_id: customerId,
+    activity_type: before?.assigned_staff_id ? "staff_reassigned" : "staff_assigned",
+    old_value: previousName,
+    new_value: newStaff?.full_name ?? "Unknown",
+    description: before?.assigned_staff_id
+      ? `Staff reassigned from ${previousName} to ${newStaff?.full_name ?? "Unknown"} on a vehicle deal`
+      : `Staff assigned to a vehicle deal: ${newStaff?.full_name ?? "Unknown"}`,
+  });
+
+  revalidatePath(`/admin/customers/${customerId}`);
+  return { error: null };
+}
+
+export async function changeRelationshipStatus(relationId: string, status: string, customerId: string) {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
+
+  const supabase = await createClient();
+  const { data: before } = await supabase
+    .from("customer_vehicle_relations")
+    .select("relationship_status")
     .eq("id", relationId)
     .single();
 
   const { error } = await supabase
     .from("customer_vehicle_relations")
-    .update({
-      assigned_staff_id: staffId,
-    })
+    .update({ relationship_status: status })
     .eq("id", relationId);
-
-  if (error) {
-    console.error("assignRelationStaff error:", error);
-
-    return {
-      error: "Unable to assign staff. Please try again.",
-    };
-  }
-
-  await supabase.from("customer_activity").insert({
-    customer_id: customerId,
-    activity_type: before?.assigned_staff_id ? "staff_reassigned" : "staff_assigned",
-    description: before?.assigned_staff_id
-      ? "Staff reassigned on a vehicle deal"
-      : "Staff assigned to a vehicle deal",
-  });
-
-  revalidatePath(`/admin/customers/${customerId}`);
-
-  return { error: null };
-}
-
-/* =========================================================
-   CHANGE RELATIONSHIP STATUS
-========================================================= */
-
-export async function changeRelationshipStatus(
-  relationId: string,
-  status: RelationshipStatus,
-  customerId: string,
-) {
-  const permission = await assertCanManageCustomers();
-
-  if (!permission.allowed) {
-    return { error: permission.error };
-  }
-
-  const supabase = await createClient();
-
-  const { error } = await supabase
-    .from("customer_vehicle_relations")
-    .update({
-      relationship_status: status,
-    })
-    .eq("id", relationId);
-
   if (error) {
     console.error("changeRelationshipStatus error:", error);
-
-    return {
-      error: "Unable to update status. Please try again.",
-    };
+    return { error: "Unable to update status. Please try again." };
   }
 
   await supabase.from("customer_activity").insert({
     customer_id: customerId,
     activity_type: "relationship_status_changed",
+    old_value: before?.relationship_status ?? null,
     new_value: status,
-    description: `Relationship status changed to ${status}`,
+    description: `Relationship status changed from ${before?.relationship_status ?? "—"} to ${status}`,
   });
 
   revalidatePath(`/admin/customers/${customerId}`);
-
   return { error: null };
 }
 

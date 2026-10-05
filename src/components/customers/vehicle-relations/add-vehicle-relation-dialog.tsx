@@ -1,21 +1,40 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { toast } from "sonner";
+
 import { Modal } from "@/src/components/ui/modal";
 import { Combobox } from "@/src/components/ui/combobox";
 import { Select } from "@/src/components/ui/select";
 import { Button } from "@/src/components/ui/button";
+
 import { addVehicleRelation, searchCarsForLink } from "@/app/admin/customers/[id]/vehicle-actions";
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 interface AddVehicleRelationDialogProps {
   isOpen: boolean;
   onClose: () => void;
   customerId: string;
-  staffOptions: { id: string; name: string }[];
+  staffOptions: {
+    id: string;
+    name: string;
+  }[];
 }
 
-const RELATIONSHIP_TYPES = [
+interface CarOption {
+  id: string;
+  label: string;
+}
+
+/* =========================================================
+   RELATIONSHIP TYPES
+========================================================= */
+
+const RELATIONSHIP_TYPE_VALUES = [
   "Interested",
   "Enquiry",
   "Test Drive",
@@ -25,7 +44,26 @@ const RELATIONSHIP_TYPES = [
   "Trade-In",
   "Wishlist",
   "Dream Car",
-].map((v) => ({ value: v, label: v }));
+] as const;
+
+type RelationshipType = (typeof RELATIONSHIP_TYPE_VALUES)[number];
+
+const RELATIONSHIP_TYPES = RELATIONSHIP_TYPE_VALUES.map((value) => ({
+  value,
+  label: value,
+}));
+
+/* =========================================================
+   TYPE GUARD
+========================================================= */
+
+function isRelationshipType(value: string): value is RelationshipType {
+  return (RELATIONSHIP_TYPE_VALUES as readonly string[]).includes(value);
+}
+
+/* =========================================================
+   COMPONENT
+========================================================= */
 
 export function AddVehicleRelationDialog({
   isOpen,
@@ -33,38 +71,91 @@ export function AddVehicleRelationDialog({
   customerId,
   staffOptions,
 }: AddVehicleRelationDialogProps) {
-  const [carOptions, setCarOptions] = useState<{ id: string; label: string }[]>([]);
+  const [carOptions, setCarOptions] = useState<CarOption[]>([]);
+
   const [carId, setCarId] = useState<string | null>(null);
-  const [relationshipType, setRelationshipType] = useState("Interested");
+
+  const [relationshipType, setRelationshipType] = useState<RelationshipType>("Interested");
+
   const [staffId, setStaffId] = useState("");
+
   const [isSaving, setIsSaving] = useState(false);
 
+  /* =========================================================
+     LOAD VEHICLES
+  ========================================================= */
+
   useEffect(() => {
-    if (!isOpen) return;
-    searchCarsForLink().then((cars) =>
-      setCarOptions(cars.map((c) => ({ id: c.id, label: `${c.display_title} · ${c.stock_id}` }))),
-    );
+    if (!isOpen) {
+      return;
+    }
+
+    searchCarsForLink().then((cars) => {
+      setCarOptions(
+        cars.map((car) => ({
+          id: car.id,
+
+          label: `${car.display_title} · ${car.stock_id}`,
+        })),
+      );
+    });
   }, [isOpen]);
+
+  /* =========================================================
+     RELATIONSHIP TYPE CHANGE
+  ========================================================= */
+
+  const handleRelationshipTypeChange = (value: string) => {
+    if (isRelationshipType(value)) {
+      setRelationshipType(value);
+    }
+  };
+
+  /* =========================================================
+     RESET
+  ========================================================= */
+
+  const reset = () => {
+    setCarId(null);
+
+    setRelationshipType("Interested");
+
+    setStaffId("");
+  };
+
+  /* =========================================================
+     SUBMIT
+  ========================================================= */
 
   const handleSubmit = async () => {
     if (!carId) {
       toast.error("Select a vehicle first.");
+
       return;
     }
+
     setIsSaving(true);
+
     const result = await addVehicleRelation(customerId, carId, relationshipType, staffId || null);
+
     setIsSaving(false);
 
     if (result.error) {
       toast.error(result.error);
+
       return;
     }
+
     toast.success("Vehicle linked successfully");
-    setCarId(null);
-    setRelationshipType("Interested");
-    setStaffId("");
+
+    reset();
+
     onClose();
   };
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
 
   return (
     <Modal
@@ -76,13 +167,16 @@ export function AddVehicleRelationDialog({
           <Button variant="outline" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} isLoading={isSaving}>
+
+          <Button onClick={handleSubmit} isLoading={isSaving} disabled={!carId}>
             Link Vehicle
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
+        {/* VEHICLE */}
+
         <Combobox
           label="Vehicle"
           value={carId}
@@ -90,18 +184,27 @@ export function AddVehicleRelationDialog({
           options={carOptions}
           placeholder="Search by name or stock ID..."
         />
+
+        {/* RELATIONSHIP TYPE */}
+
         <Select
           label="Relationship Type"
           options={RELATIONSHIP_TYPES}
           value={relationshipType}
-          onChange={(e) => setRelationshipType(e.target.value)}
+          onChange={(event) => handleRelationshipTypeChange(event.target.value)}
         />
+
+        {/* ASSIGNED STAFF */}
+
         <Select
           label="Assigned Staff"
           placeholder="Unassigned"
-          options={staffOptions.map((s) => ({ value: s.id, label: s.name }))}
+          options={staffOptions.map((staff) => ({
+            value: staff.id,
+            label: staff.name,
+          }))}
           value={staffId}
-          onChange={(e) => setStaffId(e.target.value)}
+          onChange={(event) => setStaffId(event.target.value)}
         />
       </div>
     </Modal>

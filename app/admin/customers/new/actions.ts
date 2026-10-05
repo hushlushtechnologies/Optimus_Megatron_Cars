@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/src/lib/supabase/server";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { addCustomerSchema, normalizeUaePhone, type AddCustomerValues } from "@/src/lib/validation/customer";
+import { assertCanManageCustomers } from "@/src/lib/supabase/customer-permissions";
 
 function mapSaveError(error: { code?: string; message: string }): string {
   if (error.code === "23505") {
@@ -15,6 +16,9 @@ function mapSaveError(error: { code?: string; message: string }): string {
 }
 
 export async function createCustomer(values: AddCustomerValues, tagIds: string[]) {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error, customerId: null };
+
   const parsed = addCustomerSchema.safeParse(values);
   if (!parsed.success) {
     return { error: "Please fix the highlighted fields.", customerId: null };

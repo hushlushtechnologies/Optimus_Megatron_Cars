@@ -135,7 +135,7 @@ function DataTableContent<TData>({
   /* =======================================================
      TABLE
   ======================================================= */
-
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
@@ -517,11 +517,8 @@ function DraggableHeader<TData>({
 export function createSelectionColumn<TData>(): ColumnDef<TData, unknown> {
   return {
     id: "select",
-
     size: 40,
-
     enableResizing: false,
-
     header: ({ table }) => (
       <label className="relative inline-flex size-4 cursor-pointer items-center justify-center before:absolute before:-inset-2.5 before:content-['']">
         <input
@@ -529,16 +526,13 @@ export function createSelectionColumn<TData>(): ColumnDef<TData, unknown> {
           aria-label="Select all rows"
           checked={table.getIsAllRowsSelected()}
           ref={(el) => {
-            if (el) {
-              el.indeterminate = table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected();
-            }
+            if (el) el.indeterminate = table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected();
           }}
           onChange={table.getToggleAllRowsSelectedHandler()}
           className="border-border accent-primary size-4 rounded"
         />
       </label>
     ),
-
     cell: ({ row }) => (
       <label className="relative inline-flex size-4 cursor-pointer items-center justify-center before:absolute before:-inset-2.5 before:content-['']">
         <input

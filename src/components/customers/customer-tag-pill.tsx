@@ -9,7 +9,6 @@ interface Tag {
 
 interface CustomerTagPillProps {
   tag: Tag;
-  /** Toggleable pill (filter drawer, form tag picker) vs. plain display (header, table) */
   selected?: boolean;
   onClick?: () => void;
   onRemove?: () => void;
@@ -18,13 +17,15 @@ interface CustomerTagPillProps {
 
 export function CustomerTagPill({ tag, selected, onClick, onRemove, className }: CustomerTagPillProps) {
   const isInteractive = !!onClick;
-  const isActive = selected ?? true; // plain-display pills are always "active" styling
+  const isActive = selected ?? true;
 
   const style = {
+    "--omc-status-raw": tag.color_hex,
     backgroundColor: isActive ? `${tag.color_hex}1A` : "transparent",
     borderColor: isActive ? `${tag.color_hex}66` : "var(--omc-border)",
-    color: isActive ? tag.color_hex : "var(--omc-text-muted)",
-  };
+  } as React.CSSProperties;
+
+  const textClass = isActive ? "text-[var(--omc-status-text)]" : "text-text-muted";
 
   const content = (
     <>
@@ -40,6 +41,7 @@ export function CustomerTagPill({ tag, selected, onClick, onRemove, className }:
         onClick={onClick}
         className={cn(
           "text-body-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors",
+          textClass,
           className,
         )}
         style={style}
@@ -53,6 +55,7 @@ export function CustomerTagPill({ tag, selected, onClick, onRemove, className }:
     <span
       className={cn(
         "text-body-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1",
+        textClass,
         className,
       )}
       style={style}
@@ -63,7 +66,7 @@ export function CustomerTagPill({ tag, selected, onClick, onRemove, className }:
           type="button"
           aria-label={`Remove tag ${tag.name}`}
           onClick={onRemove}
-          className="ml-0.5 opacity-70 hover:opacity-100"
+          className="relative -mr-1 ml-0.5 flex size-4 items-center justify-center opacity-70 before:absolute before:-inset-2.5 before:content-[''] hover:opacity-100"
         >
           ×
         </button>

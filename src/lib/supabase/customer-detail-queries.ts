@@ -332,7 +332,18 @@ export async function getCustomerNotesWithAuthors(customerId: string) {
   return { notes: notes ?? [], authorNames, currentUserId: user?.id ?? null, canManageAllNotes };
 }
 
-export async function getCustomerActivity(customerId: string) {
+export interface EnrichedActivityEntry {
+  id: string;
+  activity_type: string;
+  description: string;
+  old_value: string | null;
+  new_value: string | null;
+  changed_at: string;
+  changedByName: string;
+  relatedCar: { id: string; display_title: string } | null;
+}
+
+export async function getCustomerActivity(customerId: string): Promise<EnrichedActivityEntry[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("customer_activity")
@@ -340,5 +351,37 @@ export async function getCustomerActivity(customerId: string) {
     .eq("customer_id", customerId)
     .order("changed_at", { ascending: false });
 
-  return data ?? [];
+  const entries = data ?? [];
+  if (entries.length === 0) return [];
+
+  const userIds = new Set<string>();
+  const carIds = new Set<string>();
+  entries.forEach((e) => {
+    if (e.changed_by) userIds.add(e.changed_by);
+    if (e.related_car_id) carIds.add(e.related_car_id);
+  });
+
+  const [{ data: profiles }, { data: cars }] = await Promise.all([
+    userIds.size
+      ? supabase.from("profiles").select("id, full_name").in("id", Array.from(userIds))
+      : Promise.resolve({ data: [] }),
+    carIds.size
+      ? supabase.from("cars").select("id, display_title").in("id", Array.from(carIds))
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const nameOf = (id: string | null) =>
+    id ? (profiles?.find((p) => p.id === id)?.full_name ?? "Unknown") : "System";
+  const carOf = (id: string | null) => (id ? (cars?.find((c) => c.id === id) ?? null) : null);
+
+  return entries.map((e) => ({
+    id: e.id,
+    activity_type: e.activity_type,
+    description: e.description,
+    old_value: e.old_value,
+    new_value: e.new_value,
+    changed_at: e.changed_at,
+    changedByName: nameOf(e.changed_by),
+    relatedCar: carOf(e.related_car_id) ?? null,
+  }));
 }

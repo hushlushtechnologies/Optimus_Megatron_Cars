@@ -52,7 +52,7 @@ export function CustomerFilterDrawer({
     if (isOpen) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setDraft(filters);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+
       setDraftTags(selectedTagIds);
     }
   }, [isOpen, filters, selectedTagIds]);
@@ -70,7 +70,7 @@ export function CustomerFilterDrawer({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[70] flex justify-end">
+        <div className="fixed inset-0 z-70 flex justify-end">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -147,14 +147,14 @@ export function CustomerFilterDrawer({
 
                 <div>
                   <p className="text-label mb-2">Joined Date</p>
-                  <div className="flex items-center gap-2">
+                  <div className="xs:flex-row xs:items-center flex flex-col gap-2">
                     <Input
                       aria-label="Joined from"
                       type="date"
                       value={draft.joinedFrom ?? ""}
                       onChange={(e) => set("joinedFrom", e.target.value)}
                     />
-                    <span className="text-text-subtle">–</span>
+                    <span className="text-text-subtle xs:inline hidden">–</span>
                     <Input
                       aria-label="Joined to"
                       type="date"

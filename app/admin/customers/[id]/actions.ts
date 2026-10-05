@@ -89,6 +89,17 @@ export async function sendAccountSetupEmail(customerId: string, email: string) {
   const permission = await assertCanManageCustomers();
   if (!permission.allowed) return { error: permission.error };
 
+  const supabase = await createClient();
+  const { data: customer } = await supabase
+    .from("customer_profiles")
+    .select("account_status")
+    .eq("id", customerId)
+    .single();
+
+  if (customer?.account_status && customer.account_status !== "No Account") {
+    return { error: "This customer already has a login account. Use Send Password Reset instead." };
+  }
+
   const adminClient = createAdminClient();
   const { data: invited, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email);
 
@@ -101,7 +112,6 @@ export async function sendAccountSetupEmail(customerId: string, email: string) {
     };
   }
 
-  const supabase = await createClient();
   const { error } = await supabase
     .from("customer_profiles")
     .update({ user_id: invited.user.id, account_status: "Pending Setup" })

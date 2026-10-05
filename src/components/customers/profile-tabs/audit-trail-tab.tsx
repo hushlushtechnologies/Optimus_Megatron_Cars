@@ -1,16 +1,18 @@
 import { ActivityTimeline } from "@/src/components/customers/activity-timeline";
 import { getCustomerActivity } from "@/src/lib/supabase/customer-detail-queries";
+import { isAuditableActivity } from "@/src/lib/utils/customer-activity-types";
 
 export async function AuditTrailTab({ customerId }: { customerId: string }) {
   const entries = await getCustomerActivity(customerId);
-  const changes = entries.filter((e) => e.old_value !== null || e.new_value !== null);
+  const auditable = entries.filter((e) => isAuditableActivity(e.activity_type));
 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-body-sm text-text-muted">
-        Field-level changes only — Primary Relationship Manager, and any future auditable field changes.
+        Field, status, staff, and relationship changes — a compliance-focused subset of the full Activity
+        feed.
       </p>
-      <ActivityTimeline entries={changes} emptyLabel="No auditable changes recorded yet." />
+      <ActivityTimeline entries={auditable} emptyLabel="No auditable changes recorded yet." />
     </div>
   );
 }
