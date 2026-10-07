@@ -77,3 +77,43 @@ export async function getLeadFutureActions(): Promise<LeadFutureAction[]> {
     .order("sort_order");
   return data ?? [];
 }
+
+export interface LeadFilterLookups {
+  stages: { id: string; name: string }[];
+  staff: { id: string; full_name: string }[];
+  sources: { id: string; name: string }[];
+  temperatures: { value: string; label: string }[];
+  tags: { id: string; name: string; color_hex: string }[];
+  brands: { id: string; name: string }[];
+  locations: { id: string; name: string }[];
+  lostReasons: { id: string; name: string }[];
+}
+
+export async function getLeadFilterLookups(): Promise<LeadFilterLookups> {
+  const supabase = await createClient();
+
+  const [stages, staff, sources, tags, brands, locations, lostReasons] = await Promise.all([
+    supabase.from("lead_stages").select("id, name").eq("is_active", true).order("sort_order"),
+    supabase.from("profiles").select("id, full_name").order("full_name"),
+    supabase.from("customer_sources").select("id, name").order("sort_order"),
+    supabase.from("lead_tags").select("id, name, color_hex").eq("is_active", true).order("sort_order"),
+    supabase.from("brands").select("id, name").eq("is_active", true).order("sort_order"),
+    supabase.from("locations").select("id, name").eq("is_active", true).order("sort_order"),
+    supabase.from("lead_lost_reasons").select("id, name").eq("is_active", true).order("sort_order"),
+  ]);
+
+  return {
+    stages: stages.data ?? [],
+    staff: staff.data ?? [],
+    sources: sources.data ?? [],
+    temperatures: [
+      { value: "Hot", label: "Hot" },
+      { value: "Warm", label: "Warm" },
+      { value: "Cold", label: "Cold" },
+    ],
+    tags: tags.data ?? [],
+    brands: brands.data ?? [],
+    locations: locations.data ?? [],
+    lostReasons: lostReasons.data ?? [],
+  };
+}

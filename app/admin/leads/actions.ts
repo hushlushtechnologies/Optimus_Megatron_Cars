@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/src/lib/supabase/server";
 import { assertCanManageCustomers } from "@/src/lib/supabase/customer-permissions";
 import type { LeadTemperature } from "@/src/lib/types/lead";
+import { addLeadTag, removeLeadTag } from "@/app/admin/leads/[id]/tags-actions";
+import { createFollowUp } from "@/app/admin/leads/[id]/follow-up-actions";
+import type { FollowUpType } from "@/src/lib/types/lead";
 
 export async function moveLeadStage(leadId: string, newStageId: string) {
   const permission = await assertCanManageCustomers();
@@ -282,5 +285,194 @@ export async function markLeadLost(leadId: string, lostReasonId: string, notes: 
 
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${leadId}`);
+  return { error: null };
+}
+
+interface BulkResult {
+  error: string | null;
+  summary?: string;
+}
+
+async function runPerLead<T>(
+  leadIds: string[],
+  action: (leadId: string) => Promise<{ error: string | null } & T>,
+): Promise<{ succeeded: number; failed: number }> {
+  let succeeded = 0;
+  let failed = 0;
+  for (const leadId of leadIds) {
+    const result = await action(leadId);
+    if (result.error) failed++;
+    else succeeded++;
+  }
+  return { succeeded, failed };
+}
+
+function summarize(succeeded: number, failed: number, verb: string): string {
+  if (failed === 0) return `${verb} ${succeeded} lead${succeeded === 1 ? "" : "s"}`;
+  return `${verb} ${succeeded} of ${succeeded + failed} — ${failed} failed`;
+}
+
+export async function bulkAssignStaff(leadIds: string[], staffId: string): Promise<BulkResult> {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
+  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const { succeeded, failed } = await runPerLead(leadIds, (id) => assignLeadStaff(id, staffId));
+  revalidatePath("/admin/leads");
+  return {
+    error: succeeded === 0 ? "Unable to assign staff to any selected lead." : null,
+    summary: summarize(succeeded, failed, "Assigned staff on"),
+  };
+}
+
+export async function bulkChangeStage(leadIds: string[], stageId: string): Promise<BulkResult> {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
+  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const { succeeded, failed } = await runPerLead(leadIds, (id) => moveLeadStage(id, stageId));
+  revalidatePath("/admin/leads");
+  return {
+    error: succeeded === 0 ? "Unable to move any selected lead." : null,
+    summary: summarize(succeeded, failed, "Moved"),
+  };
+}
+
+export async function bulkAddTag(leadIds: string[], tagId: string): Promise<BulkResult> {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
+  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const { succeeded, failed } = await runPerLead(leadIds, (id) => addLeadTag(id, tagId));
+  revalidatePath("/admin/leads");
+  return {
+    error: succeeded === 0 ? "Unable to add the tag to any selected lead." : null,
+    summary: summarize(succeeded, failed, "Tagged"),
+  };
+}
+
+export async function bulkRemoveTag(leadIds: string[], tagId: string): Promise<BulkResult> {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
+  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const { succeeded, failed } = await runPerLead(leadIds, (id) => removeLeadTag(id, tagId));
+  revalidatePath("/admin/leads");
+  return {
+    error: succeeded === 0 ? "Unable to remove the tag from any selected lead." : null,
+    summary: summarize(succeeded, failed, "Untagged"),
+  };
+}
+
+export async function bulkChangeTemperature(
+  leadIds: string[],
+  temperature: LeadTemperature,
+): Promise<BulkResult> {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
+  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const { succeeded, failed } = await runPerLead(leadIds, (id) => changeLeadTemperature(id, temperature));
+  revalidatePath("/admin/leads");
+  return {
+    error: succeeded === 0 ? "Unable to update temperature on any selected lead." : null,
+    summary: summarize(succeeded, failed, "Updated temperature on"),
+  };
+}
+
+export async function bulkScheduleFollowUp(
+  leadIds: string[],
+  type: FollowUpType,
+  date: string,
+  time: string,
+): Promise<BulkResult> {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
+  if (leadIds.length === 0) return { error: "No leads selected." };
+  if (!date) return { error: "A date is required." };
+
+  const { succeeded, failed } = await runPerLead(leadIds, (id) => createFollowUp(id, type, date, time, ""));
+  revalidatePath("/admin/leads");
+  return {
+    error: succeeded === 0 ? "Unable to schedule a follow-up for any selected lead." : null,
+    summary: summarize(succeeded, failed, "Scheduled a follow-up for"),
+  };
+}
+
+export async function bulkArchiveLeads(leadIds: string[]): Promise<BulkResult> {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
+  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase
+    .from("leads")
+    .update({ archived_at: new Date().toISOString() })
+    .in("id", leadIds);
+  if (error) {
+    console.error("bulkArchiveLeads error:", error);
+    return { error: "Unable to archive the selected leads. Please try again." };
+  }
+
+  await supabase.from("lead_activities").insert(
+    leadIds.map((lead_id) => ({
+      lead_id,
+      activity_type: "archived",
+      description: "Lead archived",
+      changed_by: user?.id ?? null,
+    })),
+  );
+
+  revalidatePath("/admin/leads");
+  return { error: null };
+}
+
+export async function bulkRestoreLeads(leadIds: string[]): Promise<BulkResult> {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
+  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase.from("leads").update({ archived_at: null }).in("id", leadIds);
+  if (error) {
+    console.error("bulkRestoreLeads error:", error);
+    return { error: "Unable to restore the selected leads. Please try again." };
+  }
+
+  await supabase.from("lead_activities").insert(
+    leadIds.map((lead_id) => ({
+      lead_id,
+      activity_type: "restored",
+      description: "Lead restored",
+      changed_by: user?.id ?? null,
+    })),
+  );
+
+  revalidatePath("/admin/leads");
+  return { error: null };
+}
+
+export async function deleteLeads(leadIds: string[]): Promise<BulkResult> {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
+  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("leads").delete().in("id", leadIds);
+
+  if (error) {
+    console.error("deleteLeads error:", error);
+    return { error: "Unable to delete the selected lead(s). Please try again." };
+  }
+
+  revalidatePath("/admin/leads");
   return { error: null };
 }
