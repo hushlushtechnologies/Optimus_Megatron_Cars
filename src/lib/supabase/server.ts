@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -12,12 +14,15 @@ export async function createClient() {
         getAll() {
           return cookieStore.getAll();
         },
+
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
           } catch {
-            // setAll called from a Server Component — safe to ignore.
-            // Middleware (Phase 5) is what actually refreshes the session.
+            // This can happen when called from a Server Component
+            // that cannot modify cookies.
           }
         },
       },
