@@ -3,10 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/src/lib/supabase/server";
 import { assertCanManageCustomers } from "@/src/lib/supabase/customer-permissions";
-import type { LeadTemperature } from "@/src/lib/types/lead";
 import { addLeadTag, removeLeadTag } from "@/app/admin/leads/[id]/tags-actions";
 import { createFollowUp } from "@/app/admin/leads/[id]/follow-up-actions";
-import type { FollowUpType } from "@/src/lib/types/lead";
+import { assertCanDeleteLeads } from "@/src/lib/supabase/lead-permissions";
+import {
+  notifyLeadAssigned,
+  notifyLeadStageChanged,
+  notifyLeadClosed,
+} from "@/src/lib/notifications/lead-notifications";
+import type { FollowUpType, LeadTemperature } from "@/src/lib/types/lead";
 
 export async function moveLeadStage(leadId: string, newStageId: string) {
   const permission = await assertCanManageCustomers();
@@ -50,16 +55,10 @@ export async function moveLeadStage(leadId: string, newStageId: string) {
     changed_by: user?.id ?? null,
   });
 
+  await notifyLeadStageChanged(leadId, oldStageName, newStageName, user?.id ?? null);
+
   revalidatePath("/admin/leads");
   return { error: null };
-}
-
-async function notifyLeadStaffAssignment(
-  _leadId: string,
-  _newStaffId: string,
-  _assignedByUserId: string | null,
-): Promise<void> {
-  // Intentionally empty until Phase 20.
 }
 
 export async function assignLeadStaff(leadId: string, newStaffId: string) {
@@ -114,7 +113,7 @@ export async function assignLeadStaff(leadId: string, newStaffId: string) {
     changed_by: user?.id ?? null,
   });
 
-  await notifyLeadStaffAssignment(leadId, newStaffId, user?.id ?? null);
+  await notifyLeadAssigned(leadId, newStaffId, current.assigned_staff_id, user?.id ?? null);
 
   revalidatePath("/admin/leads");
   return { error: null };
@@ -208,10 +207,6 @@ export async function markLeadWon(leadId: string, notes: string) {
     return { error: "Unable to mark this lead as Won. Please try again." };
   }
 
-  // leads_log_stage_change (Phase 1's trigger) has already recorded the
-  // stage move to lead_stage_history — this activity entry is deliberately
-  // its own event, not a duplicate "stage_changed" description, since
-  // winning a deal is a materially different moment than an ordinary move.
   await supabase.from("lead_activities").insert({
     lead_id: leadId,
     activity_type: "won",
@@ -219,6 +214,8 @@ export async function markLeadWon(leadId: string, notes: string) {
     new_value: notes.trim() || null,
     changed_by: user?.id ?? null,
   });
+
+  await notifyLeadClosed(leadId, "won", null, user?.id ?? null);
 
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${leadId}`);
@@ -283,10 +280,14 @@ export async function markLeadLost(leadId: string, lostReasonId: string, notes: 
     changed_by: user?.id ?? null,
   });
 
+  await notifyLeadClosed(leadId, "lost", reason?.name ?? null, user?.id ?? null);
+
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${leadId}`);
   return { error: null };
 }
+
+// --- Bulk actions (Phase 18) ---
 
 interface BulkResult {
   error: string | null;
@@ -461,16 +462,22 @@ export async function bulkRestoreLeads(leadIds: string[]): Promise<BulkResult> {
 }
 
 export async function deleteLeads(leadIds: string[]): Promise<BulkResult> {
-  const permission = await assertCanManageCustomers();
+  const permission = await assertCanDeleteLeads();
   if (!permission.allowed) return { error: permission.error };
   if (leadIds.length === 0) return { error: "No leads selected." };
 
   const supabase = await createClient();
-  const { error } = await supabase.from("leads").delete().in("id", leadIds);
+  const { error, count } = await supabase.from("leads").delete({ count: "exact" }).in("id", leadIds);
 
   if (error) {
     console.error("deleteLeads error:", error);
     return { error: "Unable to delete the selected lead(s). Please try again." };
+  }
+
+  // RLS hides rows you aren't allowed to delete rather than raising an error,
+  // so a zero count means nothing was actually removed.
+  if (!count) {
+    return { error: "No leads were deleted. You may not have permission to delete these." };
   }
 
   revalidatePath("/admin/leads");

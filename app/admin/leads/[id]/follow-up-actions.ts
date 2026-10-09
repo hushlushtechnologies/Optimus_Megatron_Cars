@@ -358,139 +358,63 @@ export async function rescheduleFollowUp(
   newTime: string,
 ) {
   const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
 
-  if (!permission.allowed) {
-    return {
-      error: permission.error,
-    };
-  }
-
-  if (!newDate) {
-    return {
-      error: "A new date is required.",
-    };
-  }
+  if (!newDate) return { error: "A new date is required." };
 
   const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  /* =========================================================
-     ORIGINAL FOLLOW-UP
-  ========================================================= */
-
-  const { data: original, error: originalError } = await supabase
+  const { data: original } = await supabase
     .from("lead_follow_ups")
-    .select(
-      `
-        type,
-        notes,
-        scheduled_at
-      `,
-    )
+    .select("type, notes, status")
     .eq("id", followUpId)
-    .maybeSingle();
+    .single();
 
-  if (originalError) {
-    console.error("rescheduleFollowUp original error:", originalError);
-
-    return {
-      error: "Unable to load this follow-up.",
-    };
+  if (!original) return { error: "This follow-up could not be found." };
+  if (original.status !== "Scheduled") {
+    return { error: "Only scheduled follow-ups can be rescheduled." };
   }
 
-  if (!original) {
-    return {
-      error: "This follow-up could not be found.",
-    };
+  // New row first, old row second: a Rescheduled follow-up is now final, so
+  // if the second step fails we remove the new row instead of trying to
+  // reopen the old one.
+  const { data: replacement, error: insertError } = await supabase
+    .from("lead_follow_ups")
+    .insert({
+      lead_id: leadId,
+      type: original.type,
+      scheduled_at: combineDateTime(newDate, newTime),
+      notes: original.notes,
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !replacement) {
+    console.error("rescheduleFollowUp (create new) error:", insertError);
+    return { error: "Unable to reschedule this follow-up. Please try again." };
   }
-
-  /*
-   * Preserve history:
-   *
-   * Existing follow-up becomes Rescheduled.
-   * A new Scheduled record receives the new date/time.
-   */
-
-  /* =========================================================
-     MARK ORIGINAL AS RESCHEDULED
-  ========================================================= */
 
   const { error: updateError } = await supabase
     .from("lead_follow_ups")
-    .update({
-      status: "Rescheduled",
-
-      updated_at: new Date().toISOString(),
-    })
+    .update({ status: "Rescheduled", updated_at: new Date().toISOString() })
     .eq("id", followUpId);
 
   if (updateError) {
     console.error("rescheduleFollowUp (mark old) error:", updateError);
-
-    return {
-      error: "Unable to reschedule this follow-up. Please try again.",
-    };
+    await supabase.from("lead_follow_ups").delete().eq("id", replacement.id);
+    return { error: "Unable to reschedule this follow-up. Please try again." };
   }
-
-  /* =========================================================
-     CREATE REPLACEMENT
-  ========================================================= */
-
-  const scheduledAt = combineDateTime(newDate, newTime);
-
-  const { error: insertError } = await supabase.from("lead_follow_ups").insert({
-    lead_id: leadId,
-
-    type: original.type,
-
-    scheduled_at: scheduledAt,
-
-    notes: original.notes,
-  });
-
-  if (insertError) {
-    console.error("rescheduleFollowUp (create new) error:", insertError);
-
-    /*
-     * Roll back the original status if creating the
-     * replacement failed.
-     */
-
-    const { error: rollbackError } = await supabase
-      .from("lead_follow_ups")
-      .update({
-        status: "Scheduled",
-
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", followUpId);
-
-    if (rollbackError) {
-      console.error("rescheduleFollowUp rollback error:", rollbackError);
-    }
-
-    return {
-      error: "Unable to reschedule this follow-up. Please try again.",
-    };
-  }
-
-  /* =========================================================
-     ACTIVITY
-  ========================================================= */
 
   await logFollowUpActivity(
     leadId,
     "follow_up_rescheduled",
-    `Follow-up rescheduled: ${original.type} moved to ${new Date(scheduledAt).toLocaleDateString()}`,
+    `Follow-up rescheduled: ${original.type} moved to ${new Date(combineDateTime(newDate, newTime)).toLocaleDateString()}`,
     user?.id ?? null,
   );
 
   revalidatePath(`/admin/leads/${leadId}`);
-
-  return {
-    error: null,
-  };
+  return { error: null };
 }

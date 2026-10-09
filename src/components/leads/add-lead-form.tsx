@@ -342,11 +342,9 @@ export function AddLeadForm({ lookups, defaultStageId }: AddLeadFormProps) {
             render={({ field }) => (
               <Select
                 label="Stage"
-                options={lookups.stages.map((stage) => ({
-                  value: stage.id,
-
-                  label: stage.name,
-                }))}
+                options={lookups.stages
+                  .filter((s) => s.stage_type === "open")
+                  .map((s) => ({ value: s.id, label: s.name }))}
                 value={field.value ?? ""}
                 onChange={(event) => field.onChange(event.target.value)}
                 error={errors.stage_id?.message}

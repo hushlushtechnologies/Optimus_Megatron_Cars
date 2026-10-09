@@ -166,6 +166,54 @@ export async function createLead(values: AddLeadValues) {
 
   const supabase = await createClient();
 
+  /* =========================================================
+     VALIDATE STARTING STAGE
+  ========================================================= */
+
+  /*
+   * A new lead cannot start directly in Won or Lost.
+   *
+   * Starting in a closed stage would bypass the normal
+   * win/loss workflow, including lost reason validation
+   * and closure bookkeeping.
+   */
+
+  const { data: startStage, error: startStageError } = await supabase
+    .from("lead_stages")
+    .select("stage_type")
+    .eq("id", parsed.data.stage_id)
+    .maybeSingle();
+
+  if (startStageError) {
+    console.error("createLead start stage error:", startStageError);
+
+    return {
+      error: "Unable to validate the selected lead stage.",
+
+      leadId: null,
+    };
+  }
+
+  if (!startStage) {
+    return {
+      error: "The selected lead stage could not be found.",
+
+      leadId: null,
+    };
+  }
+
+  if (startStage.stage_type !== "open") {
+    return {
+      error: "New leads must start in an open pipeline stage.",
+
+      leadId: null,
+    };
+  }
+
+  /* =========================================================
+     CUSTOMER
+  ========================================================= */
+
   let customerId = parsed.data.customer_id ?? null;
 
   /* =========================================================
@@ -173,14 +221,6 @@ export async function createLead(values: AddLeadValues) {
   ========================================================= */
 
   if (parsed.data.create_new_customer) {
-    /*
-     * Reuse the existing customer creation action.
-     *
-     * Lead creation only collects the customer fields needed
-     * here; all remaining required customer fields come from
-     * addCustomerDefaults.
-     */
-
     const firstName = parsed.data.new_first_name?.trim();
 
     const lastName = parsed.data.new_last_name?.trim();
@@ -188,12 +228,6 @@ export async function createLead(values: AddLeadValues) {
     const email = parsed.data.new_email?.trim();
 
     const phone = parsed.data.new_phone?.trim();
-
-    /*
-     * The lead schema should already guarantee these fields
-     * exist when create_new_customer is true, but keeping this
-     * guard here makes the server action safe independently.
-     */
 
     if (!firstName || !lastName || !email || !phone) {
       return {
