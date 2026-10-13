@@ -4,12 +4,14 @@ import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   PointerSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
   useDroppable,
+  type Announcements,
   type DragStartEvent,
   type DragOverEvent,
   type DragEndEvent,
@@ -22,11 +24,12 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Info } from "lucide-react";
+import { GripVertical, Info } from "lucide-react";
 import { LeadPipeline } from "@/src/components/leads/lead-pipeline";
 import { LeadStageColumn } from "@/src/components/leads/lead-stage-column";
 import { LeadCard } from "@/src/components/leads/lead-card";
 import { moveLeadStage } from "@/app/admin/leads/actions";
+import { useReducedMotion } from "@/src/hooks/use-reduced-motion";
 import type { LeadStage, LeadSummary } from "@/src/lib/types/lead";
 
 interface LeadKanbanBoardProps {
@@ -51,9 +54,8 @@ function applyMove(prev: LeadsByStage, leadId: string, fromStageId: string, toSt
 export function LeadKanbanBoard({ stages, initialLeadsByStage }: LeadKanbanBoardProps) {
   const [leadsByStage, setLeadsByStage] = useState(initialLeadsByStage);
   const [activeLead, setActiveLead] = useState<LeadSummary | null>(null);
+  const prefersReducedMotion = useReducedMotion();
 
-  // Drag-gesture bookkeeping that lives outside React state — refs, since
-  // none of this should trigger a re-render on its own, only via setState.
   const snapshotRef = useRef<LeadsByStage | null>(null);
   const startContainerRef = useRef<string | null>(null);
   const currentContainerRef = useRef<string | null>(null);
@@ -68,7 +70,44 @@ export function LeadKanbanBoard({ stages, initialLeadsByStage }: LeadKanbanBoard
     return Object.keys(state).find((stageId) => state[stageId].some((l) => l.id === id));
   }
 
-  async function persist(leadId: string, fromStageId: string, toStageId: string, snapshot: LeadsByStage) {
+  function describeLead(id: string): string {
+    for (const stageId of Object.keys(leadsByStage)) {
+      const lead = leadsByStage[stageId].find((l) => l.id === id);
+      if (lead) return `${lead.lead_number}, ${lead.customer.full_name}`;
+    }
+    return "lead";
+  }
+
+  function stageNameFor(id: string): string {
+    const container = findContainer(id);
+    return stages.find((s) => s.id === container)?.name ?? "an unknown stage";
+  }
+
+  // dnd-kit's default announcements read out raw ids (UUIDs here). These
+  // say what a person actually needs to hear.
+  const announcements: Announcements = {
+    onDragStart: ({ active }) =>
+      `Picked up lead ${describeLead(String(active.id))} from ${stageNameFor(String(active.id))}.`,
+    onDragOver: ({ active, over }) =>
+      over
+        ? `Lead ${describeLead(String(active.id))} is over ${stageNameFor(String(over.id))}.`
+        : `Lead ${describeLead(String(active.id))} is not over a stage.`,
+    onDragEnd: ({ active, over }) =>
+      over
+        ? `Dropped lead ${describeLead(String(active.id))} in ${stageNameFor(String(over.id))}.`
+        : `Lead ${describeLead(String(active.id))} was returned to its original stage.`,
+    onDragCancel: ({ active }) =>
+      `Move cancelled. Lead ${describeLead(String(active.id))} stays in its original stage.`,
+  };
+
+  function resetGesture() {
+    snapshotRef.current = null;
+    startContainerRef.current = null;
+    currentContainerRef.current = null;
+    setActiveLead(null);
+  }
+
+  async function persist(leadId: string, toStageId: string, snapshot: LeadsByStage) {
     const result = await moveLeadStage(leadId, toStageId);
     if (result.error) {
       setLeadsByStage(snapshot);
@@ -124,29 +163,27 @@ export function LeadKanbanBoard({ stages, initialLeadsByStage }: LeadKanbanBoard
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-    setActiveLead(null);
-
     const activeId = String(active.id);
     const startContainer = startContainerRef.current;
     const endContainer = currentContainerRef.current;
     const snapshot = snapshotRef.current;
 
-    snapshotRef.current = null;
-    startContainerRef.current = null;
-    currentContainerRef.current = null;
+    resetGesture();
 
     if (!startContainer || !endContainer || !snapshot) return;
 
-    if (endContainer !== startContainer) {
-      // Already moved visually during handleDragOver — just persist it.
-      void persist(activeId, startContainer, endContainer, snapshot);
+    // Dropped outside every column: undo the live preview instead of
+    // quietly keeping a move that was never saved.
+    if (!over) {
+      setLeadsByStage(snapshot);
       return;
     }
 
-    // Same column: a plain reorder, not a stage change — purely visual,
-    // nothing to persist (no per-stage ordering column exists in this
-    // schema, by design).
-    if (!over) return;
+    if (endContainer !== startContainer) {
+      void persist(activeId, endContainer, snapshot);
+      return;
+    }
+
     const overId = String(over.id);
     setLeadsByStage((prev) => {
       const items = prev[startContainer];
@@ -157,26 +194,41 @@ export function LeadKanbanBoard({ stages, initialLeadsByStage }: LeadKanbanBoard
     });
   }
 
+  // Escape mid-drag: restore exactly what the board looked like before.
+  function handleDragCancel() {
+    if (snapshotRef.current) setLeadsByStage(snapshotRef.current);
+    resetGesture();
+  }
+
   function handleMoveToStage(lead: LeadSummary, toStageId: string) {
     if (toStageId === lead.stage.id) return;
     const snapshot = leadsByStage;
     setLeadsByStage((prev) => applyMove(prev, lead.id, lead.stage.id, toStageId));
-    void persist(lead.id, lead.stage.id, toStageId, snapshot);
+    void persist(lead.id, toStageId, snapshot);
   }
 
   return (
     <div className="flex flex-col gap-3">
       <div className="border-border bg-card-hover/60 text-caption text-text-muted flex items-center gap-2 rounded-md border px-3 py-2">
         <Info className="size-3.5 shrink-0" aria-hidden="true" />
-        Drag a card to change its stage, or use the ⋮ menu on any card — both are saved automatically.
+        Drag a card by its grip handle, or open the ⋮ menu on any card to move it. Both save automatically.
       </div>
 
       <DndContext
+        id="lead-kanban-dnd"
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+        accessibility={{
+          announcements,
+          screenReaderInstructions: {
+            draggable:
+              "To pick up a lead, press Space or Enter. Use the arrow keys to move it between stages, Space or Enter to drop it, and Escape to cancel. You can also use the actions menu on the lead to move it to any stage.",
+          },
+        }}
       >
         <LeadPipeline>
           {stages.map((stage) => (
@@ -202,6 +254,12 @@ export function LeadKanbanBoard({ stages, initialLeadsByStage }: LeadKanbanBoard
             </LeadStageColumn>
           ))}
         </LeadPipeline>
+
+        {/* Renders the card being dragged above everything else, so it is
+            never clipped by the scrolling column it started in. */}
+        <DragOverlay dropAnimation={prefersReducedMotion ? null : undefined}>
+          {activeLead ? <LeadCard lead={activeLead} className="ring-primary/50 shadow-lg ring-2" /> : null}
+        </DragOverlay>
       </DndContext>
     </div>
   );
@@ -225,25 +283,40 @@ function SortableLeadCard({
   stages: LeadStage[];
   onMoveToStage: (stageId: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: lead.id,
-  });
+  const prefersReducedMotion = useReducedMotion();
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({
+      id: lead.id,
+    });
 
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
+    transition: prefersReducedMotion ? undefined : transition,
+    opacity: isDragging ? 0.35 : 1,
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className="cursor-grab touch-none active:cursor-grabbing"
-    >
-      <LeadCard lead={lead} stages={stages} onMoveToStage={onMoveToStage} />
+    <div ref={setNodeRef} style={style}>
+      <LeadCard
+        lead={lead}
+        stages={stages}
+        onMoveToStage={onMoveToStage}
+        dragHandle={
+          // Only this handle starts a drag. The rest of the card scrolls and
+          // behaves normally on touch, and its link and menu keep their own
+          // Enter/Space behavior instead of being hijacked by the drag.
+          <button
+            type="button"
+            ref={setActivatorNodeRef}
+            {...attributes}
+            {...listeners}
+            aria-label={`Drag ${lead.lead_number} to another stage`}
+            className="text-text-subtle hover:bg-card-hover hover:text-text-muted focus-visible:ring-primary relative mt-0.5 flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded before:absolute before:-inset-1.5 before:content-[''] focus-visible:ring-2 focus-visible:outline-none active:cursor-grabbing"
+          >
+            <GripVertical className="size-4" aria-hidden="true" />
+          </button>
+        }
+      />
     </div>
   );
 }

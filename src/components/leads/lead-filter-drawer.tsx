@@ -171,20 +171,25 @@ export function LeadFilterDrawer({
 
                 <div>
                   <p className="text-label mb-2">Tags</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div role="group" aria-label="Tags" className="flex flex-wrap gap-2">
                     {lookups.tags.map((tag) => {
                       const isSelected = draftTags.includes(tag.id);
                       return (
                         <button
                           key={tag.id}
                           type="button"
+                          aria-pressed={isSelected}
                           onClick={() => toggleTag(tag.id)}
-                          className="text-body-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors"
-                          style={{
-                            backgroundColor: isSelected ? `${tag.color_hex}1A` : "transparent",
-                            borderColor: isSelected ? `${tag.color_hex}66` : "var(--omc-border)",
-                            color: isSelected ? tag.color_hex : "var(--omc-text-muted)",
-                          }}
+                          className={`text-body-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors ${
+                            isSelected ? "text-[var(--omc-status-text)]" : "text-text-muted"
+                          }`}
+                          style={
+                            {
+                              "--omc-status-raw": tag.color_hex,
+                              backgroundColor: isSelected ? `${tag.color_hex}1A` : "transparent",
+                              borderColor: isSelected ? `${tag.color_hex}66` : "var(--omc-border)",
+                            } as React.CSSProperties
+                          }
                         >
                           {isSelected && <Check className="size-3" aria-hidden="true" />}
                           {tag.name}

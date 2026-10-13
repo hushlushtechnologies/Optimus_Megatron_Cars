@@ -4,7 +4,7 @@ import Link from "next/link";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { Eye, Archive, ArchiveRestore, Trash2, MoreVertical } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-
+import { LeadStagePill } from "@/src/components/leads/lead-stage-pill";
 import { IconButton } from "@/src/components/ui/icon-button";
 import { Dropdown, DropdownTrigger, DropdownContent } from "@/src/components/ui/dropdown";
 import { LeadTemperatureBadge } from "@/src/components/leads/lead-temperature-badge";
@@ -90,6 +90,7 @@ export function getLeadColumns({
       enableSorting: false,
 
       cell: ({ row }) => {
+        <LeadStagePill name={row.original.stage.name} colorHex={row.original.stage.color_hex} />;
         const stage = row.original.stage;
 
         return (

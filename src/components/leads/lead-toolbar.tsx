@@ -183,7 +183,7 @@ export function LeadToolbar({ resultCount, filterLookups }: LeadToolbarProps) {
         </Button>
         <ExportMenu onExportPDF={() => handleExport("pdf")} onExportExcel={() => handleExport("excel")} />
         <SortControl options={SORT_OPTIONS} value={sort} onChange={updateSort} />
-        <span className={cn("text-body-sm text-text-muted", isPending && "opacity-50")}>
+        <span aria-live="polite" className={cn("text-body-sm text-text-muted", isPending && "opacity-50")}>
           {resultCount} {resultCount === 1 ? "lead" : "leads"}
         </span>
       </div>

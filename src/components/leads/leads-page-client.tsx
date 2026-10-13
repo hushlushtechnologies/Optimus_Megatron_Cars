@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   Table as TableIcon,
 } from "lucide-react";
+import { parseLeadFilters, countActiveLeadFilters } from "@/src/lib/utils/lead-filters";
 
 import { MetricCard } from "@/src/components/shared/metric-card";
 
@@ -105,6 +106,10 @@ export function LeadsPageClient({
       ? Object.values(kanbanData.leadsByStage).reduce((sum, leads) => sum + leads.length, 0)
       : tableTotalCount;
 
+  const hasActiveFilters =
+    !!searchParams.get("q") ||
+    countActiveLeadFilters(parseLeadFilters(Object.fromEntries(searchParams.entries()))) > 0;
+
   /* =========================================================
      RENDER
   ========================================================= */
@@ -166,7 +171,11 @@ export function LeadsPageClient({
           <LeadToolbar resultCount={resultCount} filterLookups={filterLookups} />
         </div>
 
-        <div className="border-border flex items-center rounded-md border p-0.5">
+        <div
+          role="group"
+          aria-label="Switch view"
+          className="border-border flex items-center rounded-md border p-0.5"
+        >
           <IconButton
             aria-label="Kanban view"
             aria-pressed={view === "kanban"}
@@ -194,9 +203,17 @@ export function LeadsPageClient({
       ===================================================== */}
 
       {!isHydrated ? null : view === "kanban" ? (
-        <LeadKanbanBoard stages={kanbanData.stages} initialLeadsByStage={kanbanData.leadsByStage} />
+        <>
+          {resultCount === 0 && hasActiveFilters && (
+            <p role="status" className="text-body-sm text-text-muted">
+              No leads match your search or filters.
+            </p>
+          )}
+          <LeadKanbanBoard stages={kanbanData.stages} initialLeadsByStage={kanbanData.leadsByStage} />
+        </>
       ) : (
         <LeadTable
+          hasActiveFilters={hasActiveFilters}
           rows={tableRows}
           totalCount={tableTotalCount}
           page={page}

@@ -15,6 +15,7 @@ import { IconButton } from "@/src/components/ui/icon-button";
 import { Button } from "@/src/components/ui/button";
 import { Dropdown, DropdownTrigger, DropdownContent } from "@/src/components/ui/dropdown";
 import { LeadTemperatureBadge } from "@/src/components/leads/lead-temperature-badge";
+import { LeadStagePill } from "@/src/components/leads/lead-stage-pill";
 import type { LeadSummary } from "@/src/lib/types/lead";
 
 interface LeadDetailHeaderProps {
@@ -49,16 +50,7 @@ export function LeadDetailHeader({
           <p className="text-caption text-text-subtle">{lead.lead_number}</p>
           <h1 className="text-h2 text-text-primary truncate">{lead.customer.full_name}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            <span
-              className="text-body-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1"
-              style={{
-                backgroundColor: `${lead.stage.color_hex}1A`,
-                borderColor: `${lead.stage.color_hex}66`,
-                color: lead.stage.color_hex,
-              }}
-            >
-              {lead.stage.name}
-            </span>
+            <LeadStagePill name={lead.stage.name} colorHex={lead.stage.color_hex} />
             <LeadTemperatureBadge temperature={lead.temperature} />
             {lead.source_name && (
               <span className="text-caption text-text-subtle">via {lead.source_name}</span>
@@ -75,24 +67,30 @@ export function LeadDetailHeader({
           </Button>
           {isOpen && (
             <>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
-                leftIcon={<Trophy className="size-3.5" />}
-                onClick={onMarkWon}
-              >
-                Mark Won
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-red-500/40 text-red-400 hover:bg-red-500/10"
-                leftIcon={<XCircle className="size-3.5" />}
-                onClick={onMarkLost}
-              >
-                Mark Lost
-              </Button>
+              {/* The wrapper only exists to hand --omc-status-raw down to the
+                  button; display: contents keeps it out of the layout. */}
+              <span className="contents" style={{ "--omc-status-raw": "#34d399" } as React.CSSProperties}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-emerald-500/40 text-[var(--omc-status-text)] hover:bg-emerald-500/10"
+                  leftIcon={<Trophy className="size-3.5" />}
+                  onClick={onMarkWon}
+                >
+                  Mark Won
+                </Button>
+              </span>
+              <span className="contents" style={{ "--omc-status-raw": "#f87171" } as React.CSSProperties}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-red-500/40 text-[var(--omc-status-text)] hover:bg-red-500/10"
+                  leftIcon={<XCircle className="size-3.5" />}
+                  onClick={onMarkLost}
+                >
+                  Mark Lost
+                </Button>
+              </span>
             </>
           )}
           <Dropdown>

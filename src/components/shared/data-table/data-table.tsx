@@ -72,6 +72,8 @@ interface DataTableProps<TData> {
   onColumnOrderChange?: (order: ColumnOrderState) => void;
 
   enableColumnResizing?: boolean;
+
+  ariaLabel?: string;
 }
 
 /* =========================================================
@@ -115,6 +117,7 @@ function DataTableContent<TData>({
   columnOrder,
   onColumnOrderChange,
   enableColumnResizing = false,
+  ariaLabel,
 }: DataTableProps<TData>) {
   /* =======================================================
      DND
@@ -288,7 +291,12 @@ function DataTableContent<TData>({
 
   return (
     <div className="surface-card overflow-hidden">
-      <div className="scrollbar-hidden overflow-x-auto overscroll-x-contain">
+      <div
+        role="region"
+        aria-label={ariaLabel ?? "Data table"}
+        tabIndex={0}
+        className="scrollbar-hidden focus-visible:ring-primary overflow-x-auto overscroll-x-contain focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+      >
         {/*
           IMPORTANT:
 

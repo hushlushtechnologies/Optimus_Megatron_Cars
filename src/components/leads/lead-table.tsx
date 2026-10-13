@@ -2,16 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import {
-  Trash2,
-  Archive,
-  ArchiveRestore,
-  Tag,
-  UserCog,
-  Thermometer,
-  CalendarPlus,
-  FileDown,
-} from "lucide-react";
+import { Trash2, Archive, ArchiveRestore, Tag, UserCog, Thermometer, CalendarPlus } from "lucide-react";
 import { FileText, FileSpreadsheet } from "lucide-react";
 import { triggerDownloadFromUrl } from "@/src/lib/utils/trigger-download";
 import { DataTable } from "@/src/components/shared/data-table/data-table";
@@ -20,7 +11,7 @@ import { Pagination } from "@/src/components/shared/pagination";
 import { BulkActionBar } from "@/src/components/shared/bulk-action-bar";
 import { ConfirmDialog } from "@/src/components/shared/confirm-dialog";
 import { SelectActionDialog } from "@/src/components/shared/select-action-dialog";
-import { NoSearchResults } from "@/src/components/shared/no-search-results";
+import { EmptyState } from "@/src/components/shared/empty-state";
 import { BulkFollowUpDialog } from "@/src/components/leads/bulk-follow-up-dialog";
 
 import { useTablePreferences } from "@/src/hooks/use-table-preferences";
@@ -59,7 +50,7 @@ interface LeadTableProps {
   onPageChange: (page: number) => void;
 
   onPageSizeChange: (size: number) => void;
-
+  hasActiveFilters: boolean;
   isArchivedView: boolean;
 
   filterLookups: LeadFilterLookups;
@@ -99,6 +90,7 @@ export function LeadTable({
   onPageSizeChange,
   isArchivedView,
   filterLookups,
+  hasActiveFilters,
 }: LeadTableProps) {
   const { columnVisibility, setColumnVisibility, columnOrder, setColumnOrder, reset, isHydrated } =
     useTablePreferences("omc-leads-table", {
@@ -155,7 +147,33 @@ export function LeadTable({
   });
 
   if (rows.length === 0) {
-    return <NoSearchResults query="" />;
+    if (isArchivedView) {
+      return (
+        <EmptyState
+          icon="Inbox"
+          title="No archived leads"
+          description="Leads you archive will appear here, and can be restored anytime."
+        />
+      );
+    }
+    if (hasActiveFilters) {
+      return (
+        <EmptyState
+          icon="SearchX"
+          title="No leads match your search or filters"
+          description="Try a different keyword, or clear your filters to see every lead."
+          action={{ label: "Clear filters", href: "/admin/leads" }}
+        />
+      );
+    }
+    return (
+      <EmptyState
+        icon="Inbox"
+        title="No leads yet"
+        description="Create your first lead to start tracking opportunities."
+        action={{ label: "Add Lead", href: "/admin/leads/new" }}
+      />
+    );
   }
 
   const handleExportSelected = (format: "pdf" | "excel") => {

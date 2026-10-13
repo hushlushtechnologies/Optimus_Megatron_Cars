@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Car as CarIcon, Clock, MoreVertical, ArrowRightLeft } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import type { ReactNode } from "react";
+import { AlertTriangle, Car as CarIcon, Clock, MoreVertical } from "lucide-react";
+import { formatDistanceToNow, isPast } from "date-fns";
 import { Card } from "@/src/components/ui/card";
 import { IconButton } from "@/src/components/ui/icon-button";
 import { Dropdown, DropdownTrigger, DropdownContent } from "@/src/components/ui/dropdown";
@@ -15,36 +16,35 @@ interface LeadCardProps {
   /** All active stages, for the Move to Stage menu. Omit to hide the menu. */
   stages?: LeadStage[];
   onMoveToStage?: (stageId: string) => void;
+  /** The Kanban board passes its drag handle here. The card itself is never
+   *  draggable, so its link and menu stay normal, independently-focusable controls. */
+  dragHandle?: ReactNode;
 }
 
-export function LeadCard({ lead, className, stages, onMoveToStage }: LeadCardProps) {
+export function LeadCard({ lead, className, stages, onMoveToStage, dragHandle }: LeadCardProps) {
   const otherStages = stages?.filter((s) => s.id !== lead.stage.id) ?? [];
   const showMenu = !!onMoveToStage && otherStages.length > 0;
+
+  const followUpDate = lead.next_follow_up_at ? new Date(lead.next_follow_up_at) : null;
+  const isOverdue = followUpDate ? isPast(followUpDate) : false;
 
   return (
     <Card variant="elevated" padding="sm" className={cn("flex flex-col gap-2.5", className)}>
       <div className="flex items-start justify-between gap-2">
-        <Link href={`/admin/leads/${lead.id}`} className="hover:text-primary-text min-w-0">
-          <p className="text-caption text-text-subtle truncate">{lead.lead_number}</p>
-          <p className="text-text-primary truncate font-medium">{lead.customer.full_name}</p>
-        </Link>
+        <div className="flex min-w-0 items-start gap-1.5">
+          {dragHandle}
+          <Link href={`/admin/leads/${lead.id}`} className="hover:text-primary-text min-w-0">
+            <p className="text-caption text-text-subtle truncate">{lead.lead_number}</p>
+            <p className="text-text-primary truncate font-medium">{lead.customer.full_name}</p>
+          </Link>
+        </div>
 
         <div className="flex shrink-0 items-center gap-1">
           <LeadTemperatureBadge temperature={lead.temperature} />
           {showMenu && (
             <Dropdown>
               <DropdownTrigger>
-                <IconButton
-                  aria-label="Lead actions"
-                  variant="ghost"
-                  size="sm"
-                  // Stops the drag gesture's pointerdown listener (attached to
-                  // this card's outer wrapper by the Kanban board) from
-                  // intercepting a click meant for this menu button — this is
-                  // the keyboard/screen-reader-reachable alternative to
-                  // dragging, so it must never be eaten by the drag handler.
-                  onPointerDown={(e) => e.stopPropagation()}
-                >
+                <IconButton aria-label={`Actions for ${lead.lead_number}`} variant="ghost" size="sm">
                   <MoreVertical className="size-3.5" />
                 </IconButton>
               </DropdownTrigger>
@@ -100,10 +100,20 @@ export function LeadCard({ lead, className, stages, onMoveToStage }: LeadCardPro
         {lead.source_name && <span className="truncate">{lead.source_name}</span>}
       </div>
 
-      {lead.next_follow_up_at && (
-        <p className="text-caption flex items-center gap-1.5 text-amber-400">
-          <Clock className="size-3 shrink-0" aria-hidden="true" />
-          Follow up {formatDistanceToNow(new Date(lead.next_follow_up_at), { addSuffix: true })}
+      {followUpDate && (
+        // Overdue vs upcoming differ in icon and wording, not just color,
+        // and the color itself goes through the light-mode-safe token.
+        <p
+          className="text-caption flex items-center gap-1.5 text-[var(--omc-status-text)]"
+          style={{ "--omc-status-raw": isOverdue ? "#f87171" : "#f59e0b" } as React.CSSProperties}
+        >
+          {isOverdue ? (
+            <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+          ) : (
+            <Clock className="size-3 shrink-0" aria-hidden="true" />
+          )}
+          {isOverdue ? "Follow-up overdue" : "Follow up"}{" "}
+          {formatDistanceToNow(followUpDate, { addSuffix: true })}
         </p>
       )}
 

@@ -16,8 +16,8 @@ export function FutureModuleActions({ actions }: { actions: LeadFutureAction[] }
     <div className="surface-card p-5">
       <p className="text-label mb-1">Next Steps</p>
       <p className="text-caption text-text-subtle mb-4">
-        These connect to modules that arent built yet — this lead is already set up to use them the moment
-        they are.
+        These connect to modules that aren&apos;t built yet. This lead is already set up to use them the
+        moment they are.
       </p>
 
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -37,6 +37,9 @@ export function FutureModuleActions({ actions }: { actions: LeadFutureAction[] }
                 <p className="text-body-sm text-text-primary flex items-center gap-1.5 font-medium">
                   {action.label}
                   <Lock className="text-text-subtle size-3" aria-hidden="true" />
+                  {/* The tooltip above only works for mouse users. This says
+                      the same thing to a screen reader and on touch screens. */}
+                  <span className="sr-only">(not available yet)</span>
                 </p>
                 <p className="text-caption text-text-subtle mt-0.5">{action.description}</p>
               </div>

@@ -27,6 +27,7 @@ export function LeadTagPill({ tag, className, selected, onClick }: LeadTagPillPr
       <button
         type="button"
         onClick={onClick}
+        aria-pressed={isActive}
         className={cn(
           "text-body-sm inline-flex items-center gap-1 rounded-full border px-2.5 py-1 transition-colors",
           textClass,
