@@ -5,6 +5,7 @@ import {
   getLeadTagOptions,
   getLeadLostReasons,
   getLeadFutureActions,
+  getLeadSourceOptions,
 } from "@/src/lib/supabase/lead-lookups";
 import { LeadDetailPageClient } from "@/src/components/leads/lead-detail-page-client";
 
@@ -15,13 +16,14 @@ interface LeadDetailPageProps {
 export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const { id } = await params;
 
-  const [lead, stages, staffOptions, allTags, lostReasons, futureActions] = await Promise.all([
+  const [lead, stages, staffOptions, allTags, lostReasons, futureActions, sources] = await Promise.all([
     getLeadDetail(id),
     getActiveLeadStages(),
     getStaffOptions(),
     getLeadTagOptions(),
     getLeadLostReasons(),
     getLeadFutureActions(),
+    getLeadSourceOptions(),
   ]);
 
   if (!lead) notFound();
@@ -34,6 +36,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
       allTags={allTags}
       lostReasons={lostReasons}
       futureActions={futureActions}
+      sources={sources}
     />
   );
 }

@@ -117,3 +117,18 @@ export async function getLeadFilterLookups(): Promise<LeadFilterLookups> {
     lostReasons: lostReasons.data ?? [],
   };
 }
+
+export interface LeadSourceOption {
+  id: string;
+  name: string;
+  requires_detail: boolean;
+}
+
+export async function getLeadSourceOptions(): Promise<LeadSourceOption[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("customer_sources")
+    .select("id, name, requires_detail")
+    .order("sort_order");
+  return data ?? [];
+}

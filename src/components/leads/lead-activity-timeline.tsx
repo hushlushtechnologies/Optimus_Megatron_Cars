@@ -15,6 +15,10 @@ import {
   CalendarClock,
   Trophy,
   MessageCircle,
+  CarFront,
+  Pencil,
+  Archive,
+  ArchiveRestore,
   RefreshCw,
   type LucideIcon,
 } from "lucide-react";
@@ -39,9 +43,13 @@ const TYPE_ICON: Record<string, LucideIcon> = {
   follow_up_cancelled: XCircle,
   follow_up_missed: AlertTriangle,
   follow_up_rescheduled: CalendarClock,
+  communication_logged: MessageCircle,
   won: Trophy,
   lost: XCircle,
-  communication_logged: MessageCircle,
+  vehicle_changed: CarFront,
+  lead_updated: Pencil,
+  archived: Archive,
+  restored: ArchiveRestore,
 };
 
 export function LeadActivityTimeline({
