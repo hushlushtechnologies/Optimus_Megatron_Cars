@@ -6,19 +6,26 @@ interface LeadStageColumnProps {
   stage: LeadStage;
   count: number;
   totalValue?: number;
+  /** Shown under the cards, e.g. "Showing 25 of 140". */
+  footer?: ReactNode;
   children: ReactNode;
   className?: string;
 }
 
-export function LeadStageColumn({ stage, count, totalValue, children, className }: LeadStageColumnProps) {
+export function LeadStageColumn({
+  stage,
+  count,
+  totalValue,
+  footer,
+  children,
+  className,
+}: LeadStageColumnProps) {
   const headingId = `stage-heading-${stage.id}`;
 
   return (
     <section
       aria-labelledby={headingId}
       className={cn(
-        // 85vw on phones so the next column peeks in and invites a swipe,
-        // snapping into place; fixed width from sm upward.
         "border-border bg-card-hover/40 flex w-[85vw] max-w-72 shrink-0 snap-start flex-col gap-3 rounded-lg border p-2.5 sm:w-72",
         className,
       )}
@@ -38,7 +45,7 @@ export function LeadStageColumn({ stage, count, totalValue, children, className 
           <span className="sr-only">
             {count} {count === 1 ? "lead" : "leads"}
           </span>
-          <span aria-hidden="true">{count}</span>
+          <span aria-hidden="true">{count.toLocaleString()}</span>
         </span>
       </div>
 
@@ -46,10 +53,9 @@ export function LeadStageColumn({ stage, count, totalValue, children, className 
         <p className="text-caption text-text-subtle px-1">AED {totalValue.toLocaleString()}</p>
       )}
 
-      {/* Only scrolls vertically on large screens, where columns sit side by
-          side. On phones the page itself scrolls, which avoids a confusing
-          scroll-inside-a-scroll. */}
       <div className="flex flex-col gap-2.5 lg:max-h-[calc(100vh-24rem)] lg:overflow-y-auto">{children}</div>
+
+      {footer}
     </section>
   );
 }

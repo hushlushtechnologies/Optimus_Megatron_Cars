@@ -11,6 +11,7 @@ import { Pagination } from "@/src/components/shared/pagination";
 import { BulkActionBar } from "@/src/components/shared/bulk-action-bar";
 import { ConfirmDialog } from "@/src/components/shared/confirm-dialog";
 import { SelectActionDialog } from "@/src/components/shared/select-action-dialog";
+import type { LeadTemperature } from "@/src/lib/types/lead";
 import { EmptyState } from "@/src/components/shared/empty-state";
 import { BulkFollowUpDialog } from "@/src/components/leads/bulk-follow-up-dialog";
 
@@ -36,7 +37,6 @@ import {
 } from "@/app/admin/leads/actions";
 
 import type { LeadFilterLookups } from "@/src/lib/supabase/lead-lookups";
-import type { LeadTemperature } from "@/src/lib/types/lead";
 
 interface LeadTableProps {
   rows: LeadRow[];
@@ -359,11 +359,9 @@ export function LeadTable({
         onClose={() => setAssignStaffOpen(false)}
         title={`Assign Staff to ${selectedIds.length} Lead${selectedIds.length === 1 ? "" : "s"}`}
         selectLabel="Staff Member"
-        options={filterLookups.staff.map((staff) => ({
-          value: staff.id,
-
-          label: staff.full_name,
-        }))}
+        options={filterLookups.stages
+          .filter((s) => s.stage_type === "open")
+          .map((s) => ({ value: s.id, label: s.name }))}
         confirmLabel="Assign"
         onConfirm={(staffId) => runAction(() => bulkAssignStaff(selectedIds, staffId), "Staff assigned")}
       />

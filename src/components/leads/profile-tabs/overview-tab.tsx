@@ -5,6 +5,7 @@ import { DetailSection, DetailRow } from "@/src/components/inventory/view-car/de
 import { LeadStatusBadge } from "@/src/components/leads/lead-status-badge";
 import { LeadTagPill } from "@/src/components/leads/lead-tag-pill";
 import { TemperatureSelector } from "@/src/components/leads/temperature-selector";
+import { formatDateTime } from "@/src/lib/utils/format-date";
 import type { LeadSummary, LeadTemperature } from "@/src/lib/types/lead";
 
 interface OverviewTabProps {
@@ -54,16 +55,14 @@ export function OverviewTab({
       </DetailSection>
 
       <DetailSection title="Timeline">
-        <DetailRow label="Created" value={new Date(lead.created_at).toLocaleString()} />
+        <DetailRow label="Created" value={formatDateTime(lead.created_at)} />
         <DetailRow
           label="Last Activity"
-          value={lead.last_activity_at ? new Date(lead.last_activity_at).toLocaleString() : "—"}
+          value={lead.last_activity_at ? formatDateTime(lead.last_activity_at) : "—"}
         />
         <DetailRow
           label="Next Follow-Up"
-          value={
-            lead.next_follow_up_at ? new Date(lead.next_follow_up_at).toLocaleString() : "None scheduled"
-          }
+          value={lead.next_follow_up_at ? formatDateTime(lead.next_follow_up_at) : "None scheduled"}
         />
       </DetailSection>
 

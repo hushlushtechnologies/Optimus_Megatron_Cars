@@ -2,54 +2,45 @@ import ExcelJS from "exceljs";
 import { readFileSync } from "fs";
 import { join } from "path";
 
+import { formatDate, formatDateTime } from "@/src/lib/utils/format-date";
+
 import type { LeadExportRow } from "@/src/lib/supabase/lead-export-queries";
 
-/* =========================================================
-   CONFIG
-========================================================= */
+// =========================================================
+// CONFIG
+// =========================================================
 
 const LOGO_PATH = join(process.cwd(), "public", "logo.png");
 
-/* =========================================================
-   GENERATE LEAD EXCEL
-========================================================= */
+// =========================================================
+// GENERATE LEAD EXCEL
+// =========================================================
 
 export async function generateLeadExcel(rows: LeadExportRow[]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
 
   workbook.creator = "Optimus Megatron Cars";
-
   workbook.created = new Date();
 
   const sheet = workbook.addWorksheet("Leads", {
     views: [
       {
         state: "frozen",
-
         ySplit: 4,
       },
     ],
   });
 
-  /* =========================================================
-     LOGO
-  ========================================================= */
+  // =======================================================
+  // LOGO
+  // =======================================================
 
   try {
-    /*
-     * Do not pass Node's Buffer directly to ExcelJS.
-     *
-     * Recent Node typings can expose Buffer<ArrayBuffer>
-     * while ExcelJS expects its older Buffer type.
-     *
-     * Using base64 avoids that typing conflict entirely.
-     */
-
+    // Use base64 to avoid ExcelJS Buffer typing conflicts.
     const logoBase64 = readFileSync(LOGO_PATH).toString("base64");
 
     const logoId = workbook.addImage({
       base64: `data:image/png;base64,${logoBase64}`,
-
       extension: "png",
     });
 
@@ -58,24 +49,19 @@ export async function generateLeadExcel(rows: LeadExportRow[]): Promise<Buffer> 
         col: 0,
         row: 0,
       },
-
       ext: {
         width: 48,
         height: 48,
       },
     });
   } catch (error: unknown) {
-    /*
-     * The export can still be generated if the logo
-     * does not exist or cannot be read.
-     */
-
+    // Export still works if the logo cannot be loaded.
     console.warn("Lead export logo could not be loaded:", error);
   }
 
-  /* =========================================================
-     TITLE
-  ========================================================= */
+  // =======================================================
+  // TITLE
+  // =======================================================
 
   sheet.mergeCells("B1:D1");
 
@@ -83,34 +69,32 @@ export async function generateLeadExcel(rows: LeadExportRow[]): Promise<Buffer> 
 
   sheet.getCell("B1").font = {
     bold: true,
-
     size: 13,
-
     color: {
       argb: "FF111F42",
     },
   };
 
-  /* =========================================================
-     EXPORT INFO
-  ========================================================= */
+  // =======================================================
+  // EXPORT INFO — DUBAI TIMEZONE
+  // =======================================================
 
   sheet.mergeCells("B2:D2");
 
-  sheet.getCell("B2").value =
-    `Generated ${new Date().toLocaleString()} · ${rows.length} lead${rows.length === 1 ? "" : "s"}`;
+  sheet.getCell("B2").value = `Generated ${formatDateTime(new Date())} · ${rows.length} lead${
+    rows.length === 1 ? "" : "s"
+  }`;
 
   sheet.getCell("B2").font = {
     size: 9,
-
     color: {
       argb: "FF6B7280",
     },
   };
 
-  /* =========================================================
-     COLUMNS
-  ========================================================= */
+  // =======================================================
+  // COLUMNS
+  // =======================================================
 
   sheet.columns = [
     {
@@ -118,101 +102,76 @@ export async function generateLeadExcel(rows: LeadExportRow[]): Promise<Buffer> 
       key: "_spacer",
       width: 2,
     },
-
     {
       header: "Lead ID",
       key: "lead_number",
       width: 16,
     },
-
     {
       header: "Customer",
       key: "customer_name",
       width: 22,
     },
-
     {
       header: "Customer ID",
       key: "customer_number",
       width: 16,
     },
-
     {
       header: "Vehicle",
       key: "vehicle_title",
       width: 26,
     },
-
     {
       header: "Brand",
       key: "brand_name",
       width: 14,
     },
-
     {
       header: "Source",
       key: "source_name",
       width: 16,
     },
-
     {
       header: "Stage",
       key: "stage_name",
       width: 14,
     },
-
     {
       header: "Temperature",
-
       key: "temperature",
-
       width: 12,
     },
-
     {
       header: "Assigned Staff",
-
       key: "assigned_staff_name",
-
       width: 18,
     },
-
     {
       header: "Next Follow-Up",
-
       key: "follow_up",
-
       width: 18,
     },
-
     {
       header: "Created Date",
-
       key: "created",
-
       width: 14,
     },
-
     {
       header: "Last Activity",
-
       key: "last_activity",
-
       width: 18,
     },
-
     {
       header: "Lost Reason",
-
       key: "lost_reason",
-
       width: 16,
     },
   ];
 
-  /* =========================================================
-     HEADER ROW
-  ========================================================= */
+  // =======================================================
+  // HEADER ROW
+  // =======================================================
 
   const headerRow = sheet.getRow(4);
 
@@ -235,7 +194,6 @@ export async function generateLeadExcel(rows: LeadExportRow[]): Promise<Buffer> 
 
   headerRow.font = {
     bold: true,
-
     color: {
       argb: "FFFFFFFF",
     },
@@ -243,9 +201,7 @@ export async function generateLeadExcel(rows: LeadExportRow[]): Promise<Buffer> 
 
   headerRow.fill = {
     type: "pattern",
-
     pattern: "solid",
-
     fgColor: {
       argb: "FF111F42",
     },
@@ -257,9 +213,9 @@ export async function generateLeadExcel(rows: LeadExportRow[]): Promise<Buffer> 
 
   headerRow.height = 22;
 
-  /* =========================================================
-     DATA ROWS
-  ========================================================= */
+  // =======================================================
+  // DATA ROWS — DUBAI TIMEZONE
+  // =======================================================
 
   for (const row of rows) {
     sheet.addRow({
@@ -283,22 +239,24 @@ export async function generateLeadExcel(rows: LeadExportRow[]): Promise<Buffer> 
 
       assigned_staff_name: row.assigned_staff_name ?? "Unassigned",
 
-      follow_up: row.next_follow_up_at ? new Date(row.next_follow_up_at).toLocaleString() : "—",
+      // Dubai date and time
+      follow_up: row.next_follow_up_at ? formatDateTime(row.next_follow_up_at) : "—",
 
-      created: new Date(row.created_at).toLocaleDateString(),
+      // Dubai date only
+      created: formatDate(row.created_at),
 
-      last_activity: row.last_activity_at ? new Date(row.last_activity_at).toLocaleString() : "—",
+      // Dubai date and time
+      last_activity: row.last_activity_at ? formatDateTime(row.last_activity_at) : "—",
 
       lost_reason: row.lost_reason_name ?? "—",
     });
   }
 
-  /* =========================================================
-     DATA STYLING
-  ========================================================= */
+  // =======================================================
+  // DATA STYLING
+  // =======================================================
 
   const firstDataRow = 5;
-
   const lastDataRow = 4 + rows.length;
 
   if (rows.length > 0) {
@@ -307,7 +265,6 @@ export async function generateLeadExcel(rows: LeadExportRow[]): Promise<Buffer> 
 
       currentRow.alignment = {
         vertical: "middle",
-
         wrapText: true,
       };
 
@@ -315,19 +272,18 @@ export async function generateLeadExcel(rows: LeadExportRow[]): Promise<Buffer> 
     }
   }
 
-  /* =========================================================
-     FILTER
-  ========================================================= */
+  // =======================================================
+  // FILTER
+  // =======================================================
 
   sheet.autoFilter = {
     from: "B4",
-
     to: `N${Math.max(4, lastDataRow)}`,
   };
 
-  /* =========================================================
-     OUTPUT
-  ========================================================= */
+  // =======================================================
+  // OUTPUT
+  // =======================================================
 
   const arrayBuffer = await workbook.xlsx.writeBuffer();
 

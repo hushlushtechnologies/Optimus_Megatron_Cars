@@ -1,10 +1,10 @@
 import { createClient } from "@/src/lib/supabase/server";
 
-import type { LeadStage, LeadSummary, LeadTemperature } from "@/src/lib/types/lead";
+import type { LeadStage, LeadSummary, LeadTemperature, LeadTag } from "@/src/lib/types/lead";
 
-/* =========================================================
-   SHARED RELATION HELPER
-========================================================= */
+// =========================================================
+// SHARED RELATION HELPER
+// =========================================================
 
 type SupabaseRelation<T> = T | T[] | null;
 
@@ -20,9 +20,9 @@ function normalizeRelation<T>(relation: SupabaseRelation<T>): T | null {
   return relation;
 }
 
-/* =========================================================
-   LEAD DETAIL TYPES
-========================================================= */
+// =========================================================
+// LEAD DETAIL TYPES
+// =========================================================
 
 interface LeadCustomerRelation {
   id: string;
@@ -49,47 +49,26 @@ interface LeadSourceRelation {
 
 interface RawLeadDetailRow {
   id: string;
-
   lead_number: string;
-
   temperature: LeadTemperature;
-
   source_detail: string | null;
-
   assigned_staff_id: string | null;
-
   next_follow_up_at: string | null;
-
   last_activity_at: string | null;
-
   created_at: string;
 
   stage: SupabaseRelation<LeadStage>;
-
   customer: SupabaseRelation<LeadCustomerRelation>;
-
   car: SupabaseRelation<LeadCarRelation>;
-
   source: SupabaseRelation<LeadSourceRelation>;
 }
 
-/* =========================================================
-   TAG TYPES
-========================================================= */
-
-type LeadTag = LeadSummary["tags"][number];
-
-interface LeadTagLinkRow {
-  tag: SupabaseRelation<LeadTag>;
-}
-
-/* =========================================================
-   PROFILE TYPES
-========================================================= */
+// =========================================================
+// PROFILE TYPES
+// =========================================================
 
 interface ProfileNameRow {
   id: string;
-
   full_name: string | null;
 }
 
@@ -97,32 +76,28 @@ interface StaffNameRow {
   full_name: string | null;
 }
 
-/* =========================================================
-   ASSIGNMENT HISTORY TYPES
-========================================================= */
+// =========================================================
+// ASSIGNMENT HISTORY TYPES
+// =========================================================
 
 interface RawLeadAssignmentHistoryRow {
   id: string;
-
   previous_staff_id: string | null;
-
   new_staff_id: string | null;
-
   changed_by: string | null;
-
   changed_at: string;
 }
 
-/* =========================================================
-   GET LEAD DETAIL
-========================================================= */
+// =========================================================
+// GET LEAD DETAIL
+// =========================================================
 
 export async function getLeadDetail(leadId: string): Promise<LeadSummary | null> {
   const supabase = await createClient();
 
-  /* =========================================================
-     LEAD
-  ========================================================= */
+  // =======================================================
+  // LEAD
+  // =======================================================
 
   const { data, error } = await supabase
     .from("leads")
@@ -181,9 +156,9 @@ export async function getLeadDetail(leadId: string): Promise<LeadSummary | null>
 
   const raw = data as unknown as RawLeadDetailRow;
 
-  /* =========================================================
-     NORMALIZE LEAD RELATIONS
-  ========================================================= */
+  // =======================================================
+  // NORMALIZE LEAD RELATIONS
+  // =======================================================
 
   const stage = normalizeRelation(raw.stage);
 
@@ -196,18 +171,16 @@ export async function getLeadDetail(leadId: string): Promise<LeadSummary | null>
   if (!stage || !customer) {
     console.error("getLeadDetail missing required relation:", {
       leadId,
-
       hasStage: Boolean(stage),
-
       hasCustomer: Boolean(customer),
     });
 
     return null;
   }
 
-  /* =========================================================
-     ASSIGNED STAFF
-  ========================================================= */
+  // =======================================================
+  // ASSIGNED STAFF
+  // =======================================================
 
   let staff: StaffNameRow | null = null;
 
@@ -225,51 +198,36 @@ export async function getLeadDetail(leadId: string): Promise<LeadSummary | null>
     staff = staffData;
   }
 
-  /* =========================================================
-     TAGS
-  ========================================================= */
+  // =======================================================
+  // TAGS
+  // =======================================================
 
-  const { data: tagLinksData, error: tagLinksError } = await supabase
+  const { data: tagLinks, error: tagLinksError } = await supabase
     .from("lead_tag_links")
-    .select(
-      `
-        tag:lead_tags(
-          id,
-          name,
-          slug,
-          color_hex
-        )
-      `,
-    )
+    .select("tag:lead_tags(id, name, slug, color_hex)")
     .eq("lead_id", leadId);
 
   if (tagLinksError) {
     console.error("getLeadDetail tags error:", tagLinksError);
   }
 
-  const tagLinks = (tagLinksData ?? []) as unknown as LeadTagLinkRow[];
+  const tags = (
+    (tagLinks ?? []) as unknown as {
+      tag: LeadTag | null;
+    }[]
+  )
+    .map((row) => row.tag)
+    .filter((tag): tag is LeadTag => tag !== null);
 
-  const tags: LeadSummary["tags"] = [];
-
-  for (const row of tagLinks) {
-    if (!row.tag) {
-      continue;
-    }
-
-    const normalizedTags = Array.isArray(row.tag) ? row.tag : [row.tag];
-
-    tags.push(...normalizedTags);
-  }
-
-  /* =========================================================
-     VEHICLE
-  ========================================================= */
+  // =======================================================
+  // VEHICLE
+  // =======================================================
 
   const brand = car ? normalizeRelation(car.brand) : null;
 
-  /* =========================================================
-     RETURN
-  ========================================================= */
+  // =======================================================
+  // RETURN
+  // =======================================================
 
   return {
     id: raw.id,
@@ -289,11 +247,8 @@ export async function getLeadDetail(leadId: string): Promise<LeadSummary | null>
     vehicle: car
       ? {
           id: car.id,
-
           display_title: car.display_title,
-
           brand_name: brand?.name ?? null,
-
           stock_id: car.stock_id,
         }
       : null,
@@ -312,9 +267,9 @@ export async function getLeadDetail(leadId: string): Promise<LeadSummary | null>
   };
 }
 
-/* =========================================================
-   ACTIVE LEAD STAGES
-========================================================= */
+// =========================================================
+// ACTIVE LEAD STAGES
+// =========================================================
 
 export async function getActiveLeadStages(): Promise<LeadStage[]> {
   const supabase = await createClient();
@@ -344,28 +299,24 @@ export async function getActiveLeadStages(): Promise<LeadStage[]> {
   return (data ?? []) as LeadStage[];
 }
 
-/* =========================================================
-   ASSIGNMENT HISTORY
-========================================================= */
+// =========================================================
+// ASSIGNMENT HISTORY
+// =========================================================
 
 export interface LeadAssignmentHistoryEntry {
   id: string;
-
   previousStaffName: string | null;
-
   newStaffName: string;
-
   changedByName: string;
-
   changedAt: string;
 }
 
 export async function getLeadAssignmentHistory(leadId: string): Promise<LeadAssignmentHistoryEntry[]> {
   const supabase = await createClient();
 
-  /* =========================================================
-     HISTORY
-  ========================================================= */
+  // =======================================================
+  // HISTORY
+  // =======================================================
 
   const { data, error } = await supabase
     .from("lead_staff_assignment_history")
@@ -395,9 +346,9 @@ export async function getLeadAssignmentHistory(leadId: string): Promise<LeadAssi
     return [];
   }
 
-  /* =========================================================
-     COLLECT USER IDS
-  ========================================================= */
+  // =======================================================
+  // COLLECT USER IDS
+  // =======================================================
 
   const userIds = new Set<string>();
 
@@ -415,9 +366,9 @@ export async function getLeadAssignmentHistory(leadId: string): Promise<LeadAssi
     }
   }
 
-  /* =========================================================
-     RESOLVE PROFILE NAMES
-  ========================================================= */
+  // =======================================================
+  // RESOLVE PROFILE NAMES
+  // =======================================================
 
   let profiles: ProfileNameRow[] = [];
 
@@ -439,9 +390,9 @@ export async function getLeadAssignmentHistory(leadId: string): Promise<LeadAssi
     profiles = (profileData ?? []) as ProfileNameRow[];
   }
 
-  /* =========================================================
-     NAME LOOKUP
-  ========================================================= */
+  // =======================================================
+  // NAME LOOKUP
+  // =======================================================
 
   const nameOf = (id: string | null): string | null => {
     if (!id) {
@@ -451,9 +402,9 @@ export async function getLeadAssignmentHistory(leadId: string): Promise<LeadAssi
     return profiles.find((profile) => profile.id === id)?.full_name ?? "Unknown";
   };
 
-  /* =========================================================
-     FINAL HISTORY
-  ========================================================= */
+  // =======================================================
+  // FINAL HISTORY
+  // =======================================================
 
   return rows.map((row): LeadAssignmentHistoryEntry => ({
     id: row.id,

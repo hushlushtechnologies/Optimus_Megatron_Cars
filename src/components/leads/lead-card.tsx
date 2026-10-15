@@ -1,6 +1,6 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { AlertTriangle, Car as CarIcon, Clock, MoreVertical } from "lucide-react";
+import { memo } from "react";
+import { AlertTriangle, Car as CarIcon, Clock, MoreVertical, Trophy, XCircle } from "lucide-react";
 import { formatDistanceToNow, isPast } from "date-fns";
 import { Card } from "@/src/components/ui/card";
 import { IconButton } from "@/src/components/ui/icon-button";
@@ -13,17 +13,29 @@ import type { LeadStage, LeadSummary } from "@/src/lib/types/lead";
 interface LeadCardProps {
   lead: LeadSummary;
   className?: string;
-  /** All active stages, for the Move to Stage menu. Omit to hide the menu. */
+  /** All active stages. Only the open ones are offered for moving. */
   stages?: LeadStage[];
   onMoveToStage?: (stageId: string) => void;
-  /** The Kanban board passes its drag handle here. The card itself is never
-   *  draggable, so its link and menu stay normal, independently-focusable controls. */
-  dragHandle?: ReactNode;
+  onMarkWon?: () => void;
+  onMarkLost?: () => void;
 }
 
-export function LeadCard({ lead, className, stages, onMoveToStage, dragHandle }: LeadCardProps) {
-  const otherStages = stages?.filter((s) => s.id !== lead.stage.id) ?? [];
-  const showMenu = !!onMoveToStage && otherStages.length > 0;
+// memo() matters on the Kanban board: while dragging, dnd-kit re-renders every
+// card on every frame. With stable props this whole card is skipped, so only
+// the thin sortable wrapper around it re-renders.
+export const LeadCard = memo(function LeadCard({
+  lead,
+  className,
+  stages,
+  onMoveToStage,
+  onMarkWon,
+  onMarkLost,
+}: LeadCardProps) {
+  const isOpen = lead.stage.stage_type === "open";
+  const openStages = stages?.filter((s) => s.stage_type === "open" && s.id !== lead.stage.id) ?? [];
+  const canMove = !!onMoveToStage && openStages.length > 0;
+  const canClose = isOpen && (!!onMarkWon || !!onMarkLost);
+  const showMenu = canMove || canClose;
 
   const followUpDate = lead.next_follow_up_at ? new Date(lead.next_follow_up_at) : null;
   const isOverdue = followUpDate ? isPast(followUpDate) : false;
@@ -31,13 +43,10 @@ export function LeadCard({ lead, className, stages, onMoveToStage, dragHandle }:
   return (
     <Card variant="elevated" padding="sm" className={cn("flex flex-col gap-2.5", className)}>
       <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-start gap-1.5">
-          {dragHandle}
-          <Link href={`/admin/leads/${lead.id}`} className="hover:text-primary-text min-w-0">
-            <p className="text-caption text-text-subtle truncate">{lead.lead_number}</p>
-            <p className="text-text-primary truncate font-medium">{lead.customer.full_name}</p>
-          </Link>
-        </div>
+        <Link href={`/admin/leads/${lead.id}`} className="hover:text-primary-text min-w-0">
+          <p className="text-caption text-text-subtle truncate">{lead.lead_number}</p>
+          <p className="text-text-primary truncate font-medium">{lead.customer.full_name}</p>
+        </Link>
 
         <div className="flex shrink-0 items-center gap-1">
           <LeadTemperatureBadge temperature={lead.temperature} />
@@ -48,24 +57,57 @@ export function LeadCard({ lead, className, stages, onMoveToStage, dragHandle }:
                   <MoreVertical className="size-3.5" />
                 </IconButton>
               </DropdownTrigger>
-              <DropdownContent align="end" className="w-48 py-1">
-                <p className="text-caption text-text-subtle px-4 py-1.5">Move to Stage</p>
-                {otherStages.map((stage) => (
-                  <button
-                    key={stage.id}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => onMoveToStage?.(stage.id)}
-                    className="text-body-sm text-text-primary hover:bg-card-hover flex w-full items-center gap-2.5 px-4 py-2 text-left"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: stage.color_hex }}
-                    />
-                    {stage.name}
-                  </button>
-                ))}
+              <DropdownContent align="end" className="w-52 py-1">
+                {canMove && (
+                  <>
+                    <p className="text-caption text-text-subtle px-4 py-1.5">
+                      {isOpen ? "Move to Stage" : "Reopen in Stage"}
+                    </p>
+                    {openStages.map((stage) => (
+                      <button
+                        key={stage.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => onMoveToStage?.(stage.id)}
+                        className="text-body-sm text-text-primary hover:bg-card-hover flex w-full items-center gap-2.5 px-4 py-2 text-left"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: stage.color_hex }}
+                        />
+                        {stage.name}
+                      </button>
+                    ))}
+                  </>
+                )}
+                {canClose && (
+                  <>
+                    <div className="border-border my-1 border-t" role="separator" />
+                    {onMarkWon && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={onMarkWon}
+                        className="text-body-sm text-text-primary hover:bg-card-hover flex w-full items-center gap-2.5 px-4 py-2 text-left"
+                      >
+                        <Trophy className="text-text-muted size-4" aria-hidden="true" />
+                        Mark as Won…
+                      </button>
+                    )}
+                    {onMarkLost && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={onMarkLost}
+                        className="text-body-sm text-text-primary hover:bg-card-hover flex w-full items-center gap-2.5 px-4 py-2 text-left"
+                      >
+                        <XCircle className="text-text-muted size-4" aria-hidden="true" />
+                        Mark as Lost…
+                      </button>
+                    )}
+                  </>
+                )}
               </DropdownContent>
             </Dropdown>
           )}
@@ -101,8 +143,6 @@ export function LeadCard({ lead, className, stages, onMoveToStage, dragHandle }:
       </div>
 
       {followUpDate && (
-        // Overdue vs upcoming differ in icon and wording, not just color,
-        // and the color itself goes through the light-mode-safe token.
         <p
           className="text-caption flex items-center gap-1.5 text-[var(--omc-status-text)]"
           style={{ "--omc-status-raw": isOverdue ? "#f87171" : "#f59e0b" } as React.CSSProperties}
@@ -122,4 +162,4 @@ export function LeadCard({ lead, className, stages, onMoveToStage, dragHandle }:
       </p>
     </Card>
   );
-}
+});

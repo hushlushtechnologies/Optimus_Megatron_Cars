@@ -1,6 +1,7 @@
 import { Phone, MessageCircle, Mail, Store, Car as CarIcon, RefreshCw, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { LeadFollowUp, FollowUpStatus } from "@/src/lib/types/lead";
+import { formatDateTime } from "@/src/lib/utils/format-date";
 
 const TYPE_ICON: Record<LeadFollowUp["type"], LucideIcon> = {
   "Phone Call": Phone,
@@ -36,7 +37,7 @@ export function LeadFollowUpCard({ followUp, actions }: LeadFollowUpCardProps) {
         </span>
         <div>
           <p className="text-body-sm text-text-primary font-medium">{followUp.type}</p>
-          <p className="text-caption text-text-subtle">{new Date(followUp.scheduled_at).toLocaleString()}</p>
+          <p className="text-caption text-text-subtle">{formatDateTime(followUp.scheduled_at)}</p>
           {followUp.notes && <p className="text-body-sm text-text-muted mt-1">{followUp.notes}</p>}
           <span
             className="text-caption mt-1.5 inline-flex items-center rounded-full border px-2 py-0.5 text-[var(--omc-status-text)]"

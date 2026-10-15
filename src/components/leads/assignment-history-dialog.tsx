@@ -10,9 +10,9 @@ import { getLeadAssignmentHistoryAction } from "@/app/admin/leads/[id]/actions";
 
 import type { LeadAssignmentHistoryEntry } from "@/src/lib/supabase/lead-detail-queries";
 
-/* =========================================================
-   TYPES
-========================================================= */
+// =========================================================
+// TYPES
+// =========================================================
 
 interface AssignmentHistoryDialogProps {
   isOpen: boolean;
@@ -20,24 +20,24 @@ interface AssignmentHistoryDialogProps {
   leadId: string;
 }
 
-interface AssignmentHistoryState {
-  leadId: string | null;
-  entries: LeadAssignmentHistoryEntry[];
-}
-
-/* =========================================================
-   COMPONENT
-========================================================= */
+// =========================================================
+// COMPONENT
+// =========================================================
 
 export function AssignmentHistoryDialog({ isOpen, onClose, leadId }: AssignmentHistoryDialogProps) {
-  const [historyState, setHistoryState] = useState<AssignmentHistoryState>({
-    leadId: null,
-    entries: [],
-  });
+  // =======================================================
+  // STATE
+  // =======================================================
 
-  /* =========================================================
-     LOAD ASSIGNMENT HISTORY
-  ========================================================= */
+  // null = loading
+  // [] = loaded, no history
+  // [...] = loaded history entries
+
+  const [entries, setEntries] = useState<LeadAssignmentHistoryEntry[] | null>(null);
+
+  // =======================================================
+  // LOAD ASSIGNMENT HISTORY
+  // =======================================================
 
   useEffect(() => {
     if (!isOpen) {
@@ -46,16 +46,17 @@ export function AssignmentHistoryDialog({ isOpen, onClose, leadId }: AssignmentH
 
     let cancelled = false;
 
+    // Reset loading state whenever the dialog opens.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEntries(null);
+
     getLeadAssignmentHistoryAction(leadId)
-      .then((entries) => {
+      .then((result) => {
         if (cancelled) {
           return;
         }
 
-        setHistoryState({
-          leadId,
-          entries,
-        });
+        setEntries(result);
       })
       .catch((error: unknown) => {
         console.error("Unable to load lead assignment history:", error);
@@ -64,41 +65,54 @@ export function AssignmentHistoryDialog({ isOpen, onClose, leadId }: AssignmentH
           return;
         }
 
-        setHistoryState({
-          leadId,
-          entries: [],
-        });
+        // Prevent the dialog from loading indefinitely.
+        setEntries([]);
       });
 
+    // Ignore responses from outdated requests.
     return () => {
       cancelled = true;
     };
   }, [isOpen, leadId]);
 
-  /* =========================================================
-     DERIVED STATE
-  ========================================================= */
+  // =======================================================
+  // DERIVED STATE
+  // =======================================================
 
-  const isLoading = isOpen && historyState.leadId !== leadId;
+  const isLoading = entries === null;
 
-  const entries = historyState.leadId === leadId ? historyState.entries : [];
-
-  /* =========================================================
-     RENDER
-  ========================================================= */
+  // =======================================================
+  // RENDER
+  // =======================================================
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Staff Assignment History">
       {isLoading ? (
+        // =================================================
+        // LOADING STATE
+        // =================================================
+
         <p className="text-body-sm text-text-muted">Loading...</p>
       ) : entries.length === 0 ? (
+        // =================================================
+        // EMPTY STATE
+        // =================================================
+
         <p className="text-body-sm text-text-muted">
           No reassignments yet — this lead&apos;s staff hasn&apos;t changed.
         </p>
       ) : (
+        // =================================================
+        // ASSIGNMENT HISTORY
+        // =================================================
+
         <ol className="flex flex-col gap-3">
           {entries.map((entry) => (
             <li key={entry.id} className="surface-card p-3">
+              {/* ==========================================
+                  ASSIGNMENT DETAILS
+              ========================================== */}
+
               <p className="text-body-sm text-text-primary">
                 {entry.previousStaffName ? (
                   <>
@@ -111,6 +125,10 @@ export function AssignmentHistoryDialog({ isOpen, onClose, leadId }: AssignmentH
                   </>
                 )}
               </p>
+
+              {/* ==========================================
+                  CHANGED BY / TIMESTAMP
+              ========================================== */}
 
               <p className="text-caption text-text-subtle mt-1">
                 By {entry.changedByName} ·{" "}

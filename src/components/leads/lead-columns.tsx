@@ -8,6 +8,7 @@ import { LeadStagePill } from "@/src/components/leads/lead-stage-pill";
 import { IconButton } from "@/src/components/ui/icon-button";
 import { Dropdown, DropdownTrigger, DropdownContent } from "@/src/components/ui/dropdown";
 import { LeadTemperatureBadge } from "@/src/components/leads/lead-temperature-badge";
+import { formatDateTime } from "@/src/lib/utils/format-date";
 import { createSelectionColumn } from "@/src/components/shared/data-table/data-table";
 
 import type { LeadRow } from "@/src/lib/supabase/lead-queries";
@@ -65,7 +66,7 @@ export function getLeadColumns({
       header: "Vehicle",
       enableSorting: false,
 
-      cell: (ctx) => ctx.getValue() ?? "—",
+      cell: (ctx) => (ctx.getValue() ? formatDateTime(ctx.getValue()!) : "—"),
     }),
 
     columnHelper.accessor("brand_name", {
@@ -73,7 +74,7 @@ export function getLeadColumns({
       header: "Brand",
       enableSorting: false,
 
-      cell: (ctx) => ctx.getValue() ?? "—",
+      cell: (ctx) => (ctx.getValue() ? formatDateTime(ctx.getValue()!) : "—"),
     }),
 
     columnHelper.accessor("source_name", {
@@ -81,7 +82,7 @@ export function getLeadColumns({
       header: "Source",
       enableSorting: false,
 
-      cell: (ctx) => ctx.getValue() ?? "—",
+      cell: (ctx) => (ctx.getValue() ? formatDateTime(ctx.getValue()!) : "—"),
     }),
 
     columnHelper.display({

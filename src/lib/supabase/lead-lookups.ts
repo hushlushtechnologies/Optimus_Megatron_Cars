@@ -79,7 +79,7 @@ export async function getLeadFutureActions(): Promise<LeadFutureAction[]> {
 }
 
 export interface LeadFilterLookups {
-  stages: { id: string; name: string }[];
+  stages: { id: string; name: string; stage_type: string }[];
   staff: { id: string; full_name: string }[];
   sources: { id: string; name: string }[];
   temperatures: { value: string; label: string }[];
@@ -93,7 +93,7 @@ export async function getLeadFilterLookups(): Promise<LeadFilterLookups> {
   const supabase = await createClient();
 
   const [stages, staff, sources, tags, brands, locations, lostReasons] = await Promise.all([
-    supabase.from("lead_stages").select("id, name").eq("is_active", true).order("sort_order"),
+    supabase.from("lead_stages").select("id, name, stage_type").eq("is_active", true).order("sort_order"),
     supabase.from("profiles").select("id, full_name").order("full_name"),
     supabase.from("customer_sources").select("id, name").order("sort_order"),
     supabase.from("lead_tags").select("id, name, color_hex").eq("is_active", true).order("sort_order"),

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { toDubaiDateInput, toDubaiTimeInput } from "@/src/lib/utils/format-date";
+
 import { Modal } from "@/src/components/ui/modal";
 import { Select } from "@/src/components/ui/select";
 import { Input } from "@/src/components/ui/input";
@@ -13,9 +15,9 @@ import { createFollowUp, editFollowUp, rescheduleFollowUp } from "@/app/admin/le
 
 import type { FollowUpType, LeadFollowUp } from "@/src/lib/types/lead";
 
-/* =========================================================
-   FOLLOW-UP TYPES
-========================================================= */
+// =========================================================
+// FOLLOW-UP TYPES
+// =========================================================
 
 const TYPE_OPTIONS = [
   "Phone Call",
@@ -30,55 +32,37 @@ function isFollowUpType(value: string): value is FollowUpType {
   return (TYPE_OPTIONS as readonly string[]).includes(value);
 }
 
-/* =========================================================
-   PROPS
-========================================================= */
+// =========================================================
+// PROPS
+// =========================================================
 
 interface FollowUpDialogProps {
   isOpen: boolean;
   onClose: () => void;
   leadId: string;
-
   mode: "create" | "edit" | "reschedule";
-
   followUp?: LeadFollowUp;
 }
 
 interface FollowUpDialogContentProps {
   onClose: () => void;
   leadId: string;
-
   mode: "create" | "edit" | "reschedule";
-
   followUp?: LeadFollowUp;
 }
 
-/* =========================================================
-   DATE HELPERS
-========================================================= */
-
-function toDateInput(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10);
-}
-
-function toTimeInput(iso: string): string {
-  return new Date(iso).toISOString().slice(11, 16);
-}
-
-/* =========================================================
-   OUTER DIALOG
-========================================================= */
+// =========================================================
+// OUTER DIALOG
+// =========================================================
 
 export function FollowUpDialog({ isOpen, onClose, leadId, mode, followUp }: FollowUpDialogProps) {
-  /*
-   * Do not keep the form mounted while the dialog is closed.
-   *
-   * Each time the dialog opens, FollowUpDialogContent mounts
-   * again and its useState initial values are calculated from
-   * the latest followUp.
-   *
-   * This removes the need for useEffect + setState entirely.
-   */
+  // Unmount the form whenever the dialog closes.
+  //
+  // When it opens again, React creates fresh form state
+  // using the latest follow-up values.
+  //
+  // This avoids useEffect + setState entirely.
+
   if (!isOpen) {
     return null;
   }
@@ -94,35 +78,35 @@ export function FollowUpDialog({ isOpen, onClose, leadId, mode, followUp }: Foll
   );
 }
 
-/* =========================================================
-   DIALOG CONTENT
-========================================================= */
+// =========================================================
+// DIALOG CONTENT
+// =========================================================
 
 function FollowUpDialogContent({ onClose, leadId, mode, followUp }: FollowUpDialogContentProps) {
-  /* =========================================================
-     FORM STATE
-  ========================================================= */
+  // =======================================================
+  // FORM STATE
+  // =======================================================
 
   const [type, setType] = useState<FollowUpType>(followUp?.type ?? "Phone Call");
 
-  const [date, setDate] = useState<string>(followUp ? toDateInput(followUp.scheduled_at) : "");
+  const [date, setDate] = useState(followUp ? toDubaiDateInput(followUp.scheduled_at) : "");
 
-  const [time, setTime] = useState<string>(followUp ? toTimeInput(followUp.scheduled_at) : "09:00");
+  const [time, setTime] = useState(followUp ? toDubaiTimeInput(followUp.scheduled_at) : "09:00");
 
   const [notes, setNotes] = useState<string>(followUp?.notes ?? "");
 
   const [isSaving, setIsSaving] = useState(false);
 
-  /* =========================================================
-     TITLE
-  ========================================================= */
+  // =======================================================
+  // DIALOG TITLE
+  // =======================================================
 
   const title =
     mode === "create" ? "Schedule Follow-Up" : mode === "edit" ? "Edit Follow-Up" : "Reschedule Follow-Up";
 
-  /* =========================================================
-     TYPE CHANGE
-  ========================================================= */
+  // =======================================================
+  // TYPE CHANGE
+  // =======================================================
 
   const handleTypeChange = (value: string) => {
     if (isFollowUpType(value)) {
@@ -130,14 +114,22 @@ function FollowUpDialogContent({ onClose, leadId, mode, followUp }: FollowUpDial
     }
   };
 
-  /* =========================================================
-     SUBMIT
-  ========================================================= */
+  // =======================================================
+  // SUBMIT
+  // =======================================================
 
   const handleSubmit = async () => {
+    if (isSaving) {
+      return;
+    }
+
     if (!date) {
       toast.error("Please select a follow-up date.");
+      return;
+    }
 
+    if (!time) {
+      toast.error("Please select a follow-up time.");
       return;
     }
 
@@ -162,7 +154,6 @@ function FollowUpDialogContent({ onClose, leadId, mode, followUp }: FollowUpDial
 
       if (result.error) {
         toast.error(result.error);
-
         return;
       }
 
@@ -184,9 +175,9 @@ function FollowUpDialogContent({ onClose, leadId, mode, followUp }: FollowUpDial
     }
   };
 
-  /* =========================================================
-     RENDER
-  ========================================================= */
+  // =======================================================
+  // RENDER
+  // =======================================================
 
   return (
     <Modal
@@ -199,23 +190,27 @@ function FollowUpDialogContent({ onClose, leadId, mode, followUp }: FollowUpDial
             Cancel
           </Button>
 
-          <Button type="button" onClick={handleSubmit} isLoading={isSaving} disabled={!date || isSaving}>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            isLoading={isSaving}
+            disabled={!date || !time || isSaving}
+          >
             {mode === "create" ? "Schedule" : mode === "edit" ? "Save Changes" : "Reschedule"}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4">
-        {/* ===================================================
-            TYPE
-        =================================================== */}
+        {/* ==========================================
+            FOLLOW-UP TYPE
+        ========================================== */}
 
         {mode !== "reschedule" && (
           <Select
             label="Type"
             options={TYPE_OPTIONS.map((option) => ({
               value: option,
-
               label: option,
             }))}
             value={type}
@@ -223,9 +218,9 @@ function FollowUpDialogContent({ onClose, leadId, mode, followUp }: FollowUpDial
           />
         )}
 
-        {/* ===================================================
-            DATE / TIME
-        =================================================== */}
+        {/* ==========================================
+            DATE & TIME
+        ========================================== */}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
@@ -236,12 +231,18 @@ function FollowUpDialogContent({ onClose, leadId, mode, followUp }: FollowUpDial
             onChange={(event) => setDate(event.target.value)}
           />
 
-          <Input label="Time" type="time" value={time} onChange={(event) => setTime(event.target.value)} />
+          <Input
+            label="Time"
+            type="time"
+            required
+            value={time}
+            onChange={(event) => setTime(event.target.value)}
+          />
         </div>
 
-        {/* ===================================================
+        {/* ==========================================
             NOTES
-        =================================================== */}
+        ========================================== */}
 
         {mode !== "reschedule" && (
           <Textarea
@@ -253,9 +254,9 @@ function FollowUpDialogContent({ onClose, leadId, mode, followUp }: FollowUpDial
           />
         )}
 
-        {/* ===================================================
-            RESCHEDULE INFO
-        =================================================== */}
+        {/* ==========================================
+            RESCHEDULE INFORMATION
+        ========================================== */}
 
         {mode === "reschedule" && (
           <p className="text-caption text-text-subtle">

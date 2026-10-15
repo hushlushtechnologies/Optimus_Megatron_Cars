@@ -1,11 +1,8 @@
 "use client";
 
 import { useState } from "react";
-
 import Link from "next/link";
-
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
   Plus,
   Target,
@@ -17,118 +14,75 @@ import {
   LayoutGrid,
   Table as TableIcon,
 } from "lucide-react";
-import { parseLeadFilters, countActiveLeadFilters } from "@/src/lib/utils/lead-filters";
-
 import { MetricCard } from "@/src/components/shared/metric-card";
-
 import { IconButton } from "@/src/components/ui/icon-button";
-
+import { Skeleton } from "@/src/components/ui/skeleton";
 import { LeadToolbar } from "@/src/components/leads/lead-toolbar";
-
 import { LeadKanbanBoard } from "@/src/components/leads/lead-kanban-board";
-
 import { LeadTable } from "@/src/components/leads/lead-table";
-
-import { useLeadView } from "@/src/hooks/use-lead-view";
-
+import { useLeadView, type LeadView } from "@/src/hooks/use-lead-view";
+import { parseLeadFilters, countActiveLeadFilters } from "@/src/lib/utils/lead-filters";
 import type { LeadMetrics, LeadKanbanData, LeadRow } from "@/src/lib/supabase/lead-queries";
-
 import type { LeadFilterLookups } from "@/src/lib/supabase/lead-lookups";
-
-/* =========================================================
-   TYPES
-========================================================= */
+import type { LeadLostReason } from "@/src/lib/types/lead";
 
 interface LeadsPageClientProps {
   metrics: LeadMetrics;
-
-  kanbanData: LeadKanbanData;
-
-  tableRows: LeadRow[];
-
-  tableTotalCount: number;
-
+  initialView: LeadView;
+  kanbanData: LeadKanbanData | null;
+  tableData: { rows: LeadRow[]; totalCount: number } | null;
+  resultCount: number;
   page: number;
-
   pageSize: number;
-
   filterLookups: LeadFilterLookups;
-
-  isArchivedView: boolean;
+  lostReasons: LeadLostReason[];
 }
 
-/* =========================================================
-   COMPONENT
-========================================================= */
+function ViewLoading() {
+  return (
+    <div className="surface-card p-5" aria-busy="true">
+      <Skeleton className="h-72 w-full" />
+    </div>
+  );
+}
 
 export function LeadsPageClient({
   metrics,
+  initialView,
   kanbanData,
-  tableRows,
-  tableTotalCount,
+  tableData,
+  resultCount,
   page,
   pageSize,
   filterLookups,
-  isArchivedView,
+  lostReasons,
 }: LeadsPageClientProps) {
   const router = useRouter();
-
   const pathname = usePathname();
-
   const searchParams = useSearchParams();
-
-  const { view, setView, isHydrated } = useLeadView();
-
+  const { view, setView, isPending } = useLeadView(initialView);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
-
-  /* =========================================================
-     UPDATE QUERY PARAM
-  ========================================================= */
 
   const updateParam = (key: string, value: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
-
-    if (value) {
-      params.set(key, value);
-    } else {
-      params.delete(key);
-    }
-
+    if (value) params.set(key, value);
+    else params.delete(key);
     router.replace(`${pathname}?${params.toString()}`);
   };
-
-  /* =========================================================
-     RESULT COUNT
-  ========================================================= */
-
-  const resultCount =
-    view === "kanban"
-      ? Object.values(kanbanData.leadsByStage).reduce((sum, leads) => sum + leads.length, 0)
-      : tableTotalCount;
 
   const hasActiveFilters =
     !!searchParams.get("q") ||
     countActiveLeadFilters(parseLeadFilters(Object.fromEntries(searchParams.entries()))) > 0;
 
-  /* =========================================================
-     RENDER
-  ========================================================= */
-
   return (
     <div className="flex flex-col gap-6">
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-h1">Leads</h1>
-
           <p className="text-body-sm text-text-muted">
             Every customer opportunity, tracked from first contact through to a sale.
           </p>
         </div>
-
         <Link
           href="/admin/leads/new"
           className="bg-primary text-body hover:bg-primary-hover inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-[#0b1220] transition-colors"
@@ -138,10 +92,6 @@ export function LeadsPageClient({
         </Link>
       </div>
 
-      {/* =====================================================
-          METRICS
-      ===================================================== */}
-
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
         <MetricCard
           label="Total Leads"
@@ -150,27 +100,21 @@ export function LeadsPageClient({
           change={metrics.totalChange}
           trend={metrics.totalTrend}
         />
-
         <MetricCard label="New Leads" value={metrics.newLeads} icon={<Sparkles />} />
-
         <MetricCard label="Follow-Ups Due" value={metrics.followUpsDue} icon={<Clock />} />
-
         <MetricCard label="Hot Leads" value={metrics.hotLeads} icon={<Flame />} />
-
         <MetricCard label="Won" value={metrics.won} icon={<Trophy />} />
-
         <MetricCard label="Lost" value={metrics.lost} icon={<XCircle />} />
       </div>
 
-      {/* =====================================================
-          TOOLBAR + VIEW TOGGLE
-      ===================================================== */}
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex-1">
-          <LeadToolbar resultCount={resultCount} filterLookups={filterLookups} />
+          <LeadToolbar
+            resultCount={resultCount}
+            filterLookups={filterLookups}
+            showArchivedToggle={view === "table"}
+          />
         </div>
-
         <div
           role="group"
           aria-label="Switch view"
@@ -185,7 +129,6 @@ export function LeadsPageClient({
           >
             <LayoutGrid className="size-4" />
           </IconButton>
-
           <IconButton
             aria-label="Table view"
             aria-pressed={view === "table"}
@@ -198,34 +141,48 @@ export function LeadsPageClient({
         </div>
       </div>
 
-      {/* =====================================================
-          CONTENT
-      ===================================================== */}
-
-      {!isHydrated ? null : view === "kanban" ? (
-        <>
-          {resultCount === 0 && hasActiveFilters && (
-            <p role="status" className="text-body-sm text-text-muted">
-              No leads match your search or filters.
-            </p>
-          )}
-          <LeadKanbanBoard stages={kanbanData.stages} initialLeadsByStage={kanbanData.leadsByStage} />
-        </>
-      ) : (
-        <LeadTable
-          hasActiveFilters={hasActiveFilters}
-          rows={tableRows}
-          totalCount={tableTotalCount}
-          page={page}
-          pageSize={pageSize}
-          rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
-          onPageChange={(nextPage) => updateParam("page", String(nextPage))}
-          onPageSizeChange={(size) => updateParam("pageSize", String(size))}
-          isArchivedView={isArchivedView}
-          filterLookups={filterLookups}
-        />
-      )}
+      <div className={isPending ? "opacity-60 transition-opacity" : "transition-opacity"}>
+        {view === "kanban" ? (
+          kanbanData ? (
+            <>
+              {resultCount === 0 && hasActiveFilters && (
+                <p role="status" className="text-body-sm text-text-muted mb-3">
+                  No leads match your search or filters.
+                </p>
+              )}
+              {/* Keyed on the URL so a new search, filter or sort rebuilds the
+                  board. Without this the board keeps showing the first data it
+                  was given and ignores every filter change. */}
+              <LeadKanbanBoard
+                key={searchParams.toString()}
+                stages={kanbanData.stages}
+                initialLeadsByStage={kanbanData.leadsByStage}
+                stageTotals={kanbanData.stageTotals}
+                openTruncated={kanbanData.openTruncated}
+                lostReasons={lostReasons}
+              />
+            </>
+          ) : (
+            <ViewLoading />
+          )
+        ) : tableData ? (
+          <LeadTable
+            rows={tableData.rows}
+            totalCount={tableData.totalCount}
+            page={page}
+            pageSize={pageSize}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
+            onPageChange={(p) => updateParam("page", String(p))}
+            onPageSizeChange={(size) => updateParam("pageSize", String(size))}
+            isArchivedView={searchParams.get("archived") === "true"}
+            hasActiveFilters={hasActiveFilters}
+            filterLookups={filterLookups}
+          />
+        ) : (
+          <ViewLoading />
+        )}
+      </div>
     </div>
   );
 }

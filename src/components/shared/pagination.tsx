@@ -4,29 +4,49 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { IconButton } from "@/src/components/ui/icon-button";
 
+// =========================================================
+// TYPES
+// =========================================================
+
 interface PaginationProps {
   page: number;
   pageSize: number;
   totalItems: number;
 
+  /**
+   * Noun used in "Showing 1–25 of N …".
+   * Defaults to vehicles so existing Inventory pages
+   * remain unchanged.
+   */
+  itemLabel?: {
+    singular: string;
+    plural: string;
+  };
+
   onPageChange: (page: number) => void;
-
   onPageSizeChange?: (size: number) => void;
-
   pageSizeOptions?: number[];
 }
+
+// =========================================================
+// COMPONENT
+// =========================================================
 
 export function Pagination({
   page,
   pageSize,
   totalItems,
+  itemLabel = {
+    singular: "vehicle",
+    plural: "vehicles",
+  },
   onPageChange,
   onPageSizeChange,
   pageSizeOptions = [10, 25, 50, 100],
 }: PaginationProps) {
-  /* =======================================================
-     PAGINATION VALUES
-  ======================================================= */
+  // =======================================================
+  // PAGINATION VALUES
+  // =======================================================
 
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
@@ -40,11 +60,21 @@ export function Pagination({
 
   const isNextDisabled = currentPage >= totalPages;
 
+  // =======================================================
+  // RESULT LABEL
+  // =======================================================
+
+  const resultLabel = totalItems === 1 ? itemLabel.singular : itemLabel.plural;
+
+  // =======================================================
+  // RENDER
+  // =======================================================
+
   return (
     <div className="border-border/70 flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      {/* =================================================
+      {/* ===================================================
           RESULT INFORMATION
-      ================================================= */}
+      =================================================== */}
 
       <div className="flex min-w-0 items-center gap-2">
         <span
@@ -58,13 +88,13 @@ export function Pagination({
             {start.toLocaleString()}–{end.toLocaleString()}
           </span>{" "}
           of <span className="text-text-primary font-medium tabular-nums">{totalItems.toLocaleString()}</span>{" "}
-          {totalItems === 1 ? "vehicle" : "vehicles"}
+          {resultLabel}
         </p>
       </div>
 
-      {/* =================================================
+      {/* ===================================================
           CONTROLS
-      ================================================= */}
+      =================================================== */}
 
       <div className="flex items-center justify-between gap-3 sm:justify-end">
         {/* ===============================================
@@ -109,6 +139,8 @@ export function Pagination({
         =============================================== */}
 
         <div className="flex shrink-0 items-center gap-1">
+          {/* PREVIOUS PAGE */}
+
           <IconButton
             aria-label="Previous page"
             variant="outline"
@@ -134,6 +166,8 @@ export function Pagination({
             <span className="text-text-muted tabular-nums">{totalPages}</span>
           </div>
 
+          {/* NEXT PAGE */}
+
           <IconButton
             aria-label="Next page"
             variant="outline"
@@ -150,9 +184,9 @@ export function Pagination({
   );
 }
 
-/* =========================================================
-   SELECT CHEVRON
-========================================================= */
+// =========================================================
+// SELECT CHEVRON
+// =========================================================
 
 function ChevronDownIcon() {
   return (

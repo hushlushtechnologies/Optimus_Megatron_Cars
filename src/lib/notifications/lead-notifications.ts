@@ -123,3 +123,67 @@ export async function notifyLeadClosed(
     console.error("notifyLeadClosed error:", error);
   }
 }
+
+// --- Bulk: one notification per recipient instead of one per lead ---
+
+const wasWere = (count: number) => (count === 1 ? "was" : "were");
+const leadWord = (count: number) => (count === 1 ? "lead" : "leads");
+
+export async function notifyLeadsStageChangedBulk(
+  countsByStaff: Record<string, number>,
+  newStageName: string,
+  actorId: string | null,
+): Promise<void> {
+  try {
+    const actorName = await getActorName(actorId);
+    for (const [staffId, count] of Object.entries(countsByStaff)) {
+      await createNotification({
+        recipientId: staffId,
+        type: "lead_stage_changed",
+        title: count === 1 ? "Lead stage changed" : "Lead stages changed",
+        description: `${count} of your ${leadWord(count)} ${wasWere(count)} moved to ${newStageName} by ${actorName}.`,
+        entityType: "leads",
+        entityId: null,
+        actorId,
+      });
+    }
+  } catch (error) {
+    console.error("notifyLeadsStageChangedBulk error:", error);
+  }
+}
+
+export async function notifyLeadsAssignedBulk(
+  newStaffId: string,
+  assignedCount: number,
+  previousStaffCounts: Record<string, number>,
+  actorId: string | null,
+): Promise<void> {
+  try {
+    const actorName = await getActorName(actorId);
+
+    await createNotification({
+      recipientId: newStaffId,
+      type: "lead_assigned",
+      title: assignedCount === 1 ? "New lead assigned to you" : `${assignedCount} new leads assigned to you`,
+      description: `${assignedCount} ${leadWord(assignedCount)} ${wasWere(assignedCount)} assigned to you by ${actorName}.`,
+      entityType: "leads",
+      entityId: null,
+      actorId,
+    });
+
+    for (const [staffId, count] of Object.entries(previousStaffCounts)) {
+      if (staffId === newStaffId) continue;
+      await createNotification({
+        recipientId: staffId,
+        type: "lead_reassigned",
+        title: count === 1 ? "Lead reassigned away from you" : "Leads reassigned away from you",
+        description: `${count} of your ${leadWord(count)} ${wasWere(count)} reassigned to another team member by ${actorName}.`,
+        entityType: "leads",
+        entityId: null,
+        actorId,
+      });
+    }
+  } catch (error) {
+    console.error("notifyLeadsAssignedBulk error:", error);
+  }
+}

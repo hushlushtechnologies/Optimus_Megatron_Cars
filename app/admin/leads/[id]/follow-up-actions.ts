@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { dubaiToIso } from "@/src/lib/utils/format-date";
 
 import { createClient } from "@/src/lib/supabase/server";
 
@@ -50,7 +51,7 @@ async function logFollowUpActivity(
 ========================================================= */
 
 function combineDateTime(date: string, time: string): string {
-  return new Date(`${date}T${time || "09:00"}`).toISOString();
+  return dubaiToIso(date, time);
 }
 
 /* =========================================================

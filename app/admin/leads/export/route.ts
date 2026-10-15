@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MAX_BULK_LEADS } from "@/src/lib/utils/lead-limits";
 import { assertCanManageCustomers } from "@/src/lib/supabase/customer-permissions";
 import { getLeadExportRows } from "@/src/lib/supabase/lead-export-queries";
 import { parseLeadFilters } from "@/src/lib/utils/lead-filters";
@@ -21,6 +22,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const ids = params.get("ids")?.split(",").filter(Boolean);
+    if (scope === "selected" && (ids?.length ?? 0) > MAX_BULK_LEADS) {
+      return NextResponse.json(
+        { error: `Select at most ${MAX_BULK_LEADS} leads to export at once.` },
+        { status: 400 },
+      );
+    }
     const filters = parseLeadFilters(Object.fromEntries(params.entries()));
 
     const rows = await getLeadExportRows({

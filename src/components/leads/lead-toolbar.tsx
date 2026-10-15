@@ -56,9 +56,10 @@ interface FilterChip {
 interface LeadToolbarProps {
   resultCount: number;
   filterLookups: LeadFilterLookups;
+  showArchivedToggle?: boolean;
 }
 
-export function LeadToolbar({ resultCount, filterLookups }: LeadToolbarProps) {
+export function LeadToolbar({ resultCount, filterLookups, showArchivedToggle = true }: LeadToolbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -173,14 +174,17 @@ export function LeadToolbar({ resultCount, filterLookups }: LeadToolbarProps) {
         >
           Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
         </Button>
-        <Button
-          variant={isArchivedView ? "outline" : "ghost"}
-          size="sm"
-          leftIcon={<Archive className="size-4" />}
-          onClick={toggleArchivedView}
-        >
-          {isArchivedView ? "Viewing Archived" : "Archived"}
-        </Button>
+        {showArchivedToggle && (
+          <Button
+            variant={isArchivedView ? "outline" : "ghost"}
+            size="sm"
+            aria-pressed={isArchivedView}
+            leftIcon={<Archive className="size-4" />}
+            onClick={toggleArchivedView}
+          >
+            {isArchivedView ? "Viewing Archived" : "Archived"}
+          </Button>
+        )}
         <ExportMenu onExportPDF={() => handleExport("pdf")} onExportExcel={() => handleExport("excel")} />
         <SortControl options={SORT_OPTIONS} value={sort} onChange={updateSort} />
         <span aria-live="polite" className={cn("text-body-sm text-text-muted", isPending && "opacity-50")}>

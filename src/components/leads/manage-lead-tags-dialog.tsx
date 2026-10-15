@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Modal } from "@/src/components/ui/modal";
 import { Button } from "@/src/components/ui/button";
@@ -37,6 +37,11 @@ export function ManageLeadTagsDialog({
     setDraftIds(currentTagIds);
     onClose();
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isOpen) setDraftIds(currentTagIds);
+  }, [isOpen, currentTagIds]);
 
   const handleSave = async () => {
     setIsSaving(true);

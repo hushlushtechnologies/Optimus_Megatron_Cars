@@ -3,43 +3,90 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/src/lib/supabase/server";
 import { assertCanManageCustomers } from "@/src/lib/supabase/customer-permissions";
+import { assertCanDeleteLeads } from "@/src/lib/supabase/lead-permissions";
 import { addLeadTag, removeLeadTag } from "@/app/admin/leads/[id]/tags-actions";
 import { createFollowUp } from "@/app/admin/leads/[id]/follow-up-actions";
-import { assertCanDeleteLeads } from "@/src/lib/supabase/lead-permissions";
 import {
   notifyLeadAssigned,
   notifyLeadStageChanged,
   notifyLeadClosed,
+  notifyLeadsAssignedBulk,
+  notifyLeadsStageChangedBulk,
 } from "@/src/lib/notifications/lead-notifications";
+import { BULK_CONCURRENCY, MAX_BULK_LEADS } from "@/src/lib/utils/lead-limits";
 import type { FollowUpType, LeadTemperature } from "@/src/lib/types/lead";
 
-export async function moveLeadStage(leadId: string, newStageId: string) {
-  const permission = await assertCanManageCustomers();
-  if (!permission.allowed) return { error: permission.error };
+// --- Stage moves ---
 
+interface StageMoveOutcome {
+  error: string | null;
+  moved: boolean;
+  assignedStaffId: string | null;
+  newStageName: string;
+}
+
+async function moveLeadStageCore(
+  leadId: string,
+  newStageId: string,
+  notify: boolean,
+): Promise<StageMoveOutcome> {
   const supabase = await createClient();
 
-  const { data: current } = await supabase.from("leads").select("stage_id").eq("id", leadId).single();
+  const { data: current } = await supabase
+    .from("leads")
+    .select("stage_id, assigned_staff_id")
+    .eq("id", leadId)
+    .single();
 
-  if (!current) return { error: "This lead could not be found." };
-
-  if (current.stage_id === newStageId) {
-    return { error: null };
+  if (!current) {
+    return { error: "This lead could not be found.", moved: false, assignedStaffId: null, newStageName: "" };
   }
 
-  const { data: stageNames } = await supabase
+  if (current.stage_id === newStageId) {
+    return { error: null, moved: false, assignedStaffId: current.assigned_staff_id, newStageName: "" };
+  }
+
+  const { data: stageRows } = await supabase
     .from("lead_stages")
-    .select("id, name")
+    .select("id, name, stage_type")
     .in("id", [current.stage_id, newStageId]);
 
-  const oldStageName = stageNames?.find((s) => s.id === current.stage_id)?.name ?? "Unknown";
-  const newStageName = stageNames?.find((s) => s.id === newStageId)?.name ?? "Unknown";
+  const oldStage = stageRows?.find((s) => s.id === current.stage_id);
+  const newStage = stageRows?.find((s) => s.id === newStageId);
+
+  if (!newStage) {
+    return {
+      error: "That stage could not be found.",
+      moved: false,
+      assignedStaffId: current.assigned_staff_id,
+      newStageName: "",
+    };
+  }
+
+  // Closing a deal always records its outcome (and, for Lost, a reason), so
+  // it has to go through Mark Won / Mark Lost, never a plain stage move.
+  if (newStage.stage_type !== "open") {
+    return {
+      error: "To close a lead, use Mark Won or Mark Lost so the outcome is recorded.",
+      moved: false,
+      assignedStaffId: current.assigned_staff_id,
+      newStageName: "",
+    };
+  }
+
+  const oldStageName = oldStage?.name ?? "Unknown";
+  const newStageName = newStage.name;
 
   const { error } = await supabase.from("leads").update({ stage_id: newStageId }).eq("id", leadId);
 
   if (error) {
     console.error("moveLeadStage error:", error);
-    return { error: "Unable to move this lead. Your changes were not saved." };
+    return {
+      error: "Unable to move this lead. Your changes were not saved.",
+      moved: false,
+      assignedStaffId: current.assigned_staff_id,
+      newStageName: "",
+    };
   }
 
   const {
@@ -55,16 +102,33 @@ export async function moveLeadStage(leadId: string, newStageId: string) {
     changed_by: user?.id ?? null,
   });
 
-  await notifyLeadStageChanged(leadId, oldStageName, newStageName, user?.id ?? null);
+  if (notify) await notifyLeadStageChanged(leadId, oldStageName, newStageName, user?.id ?? null);
 
-  revalidatePath("/admin/leads");
-  return { error: null };
+  return { error: null, moved: true, assignedStaffId: current.assigned_staff_id, newStageName };
 }
 
-export async function assignLeadStaff(leadId: string, newStaffId: string) {
+export async function moveLeadStage(leadId: string, newStageId: string) {
   const permission = await assertCanManageCustomers();
   if (!permission.allowed) return { error: permission.error };
 
+  const result = await moveLeadStageCore(leadId, newStageId, true);
+  if (!result.error) revalidatePath("/admin/leads");
+  return { error: result.error };
+}
+
+// --- Staff assignment ---
+
+interface AssignOutcome {
+  error: string | null;
+  changed: boolean;
+  previousStaffId: string | null;
+}
+
+async function assignLeadStaffCore(
+  leadId: string,
+  newStaffId: string,
+  notify: boolean,
+): Promise<AssignOutcome> {
   const supabase = await createClient();
 
   const { data: current } = await supabase
@@ -73,10 +137,10 @@ export async function assignLeadStaff(leadId: string, newStaffId: string) {
     .eq("id", leadId)
     .single();
 
-  if (!current) return { error: "This lead could not be found." };
+  if (!current) return { error: "This lead could not be found.", changed: false, previousStaffId: null };
 
   if (current.assigned_staff_id === newStaffId) {
-    return { error: null };
+    return { error: null, changed: false, previousStaffId: current.assigned_staff_id };
   }
 
   const idsToResolve = [current.assigned_staff_id, newStaffId].filter(Boolean) as string[];
@@ -93,7 +157,11 @@ export async function assignLeadStaff(leadId: string, newStaffId: string) {
 
   if (error) {
     console.error("assignLeadStaff error:", error);
-    return { error: "Unable to assign staff. Your changes were not saved." };
+    return {
+      error: "Unable to assign staff. Your changes were not saved.",
+      changed: false,
+      previousStaffId: current.assigned_staff_id,
+    };
   }
 
   const {
@@ -113,11 +181,21 @@ export async function assignLeadStaff(leadId: string, newStaffId: string) {
     changed_by: user?.id ?? null,
   });
 
-  await notifyLeadAssigned(leadId, newStaffId, current.assigned_staff_id, user?.id ?? null);
+  if (notify) await notifyLeadAssigned(leadId, newStaffId, current.assigned_staff_id, user?.id ?? null);
 
-  revalidatePath("/admin/leads");
-  return { error: null };
+  return { error: null, changed: true, previousStaffId: current.assigned_staff_id };
 }
+
+export async function assignLeadStaff(leadId: string, newStaffId: string) {
+  const permission = await assertCanManageCustomers();
+  if (!permission.allowed) return { error: permission.error };
+
+  const result = await assignLeadStaffCore(leadId, newStaffId, true);
+  if (!result.error) revalidatePath("/admin/leads");
+  return { error: result.error };
+}
+
+// --- Temperature ---
 
 export async function changeLeadTemperature(leadId: string, newTemperature: LeadTemperature) {
   const permission = await assertCanManageCustomers();
@@ -155,6 +233,8 @@ export async function changeLeadTemperature(leadId: string, newTemperature: Lead
   revalidatePath("/admin/leads");
   return { error: null };
 }
+
+// --- Won / Lost ---
 
 async function getLeadWithStageType(leadId: string) {
   const supabase = await createClient();
@@ -287,25 +367,41 @@ export async function markLeadLost(leadId: string, lostReasonId: string, notes: 
   return { error: null };
 }
 
-// --- Bulk actions (Phase 18) ---
+// --- Bulk actions ---
 
 interface BulkResult {
   error: string | null;
   summary?: string;
 }
 
-async function runPerLead<T>(
-  leadIds: string[],
-  action: (leadId: string) => Promise<{ error: string | null } & T>,
-): Promise<{ succeeded: number; failed: number }> {
-  let succeeded = 0;
-  let failed = 0;
-  for (const leadId of leadIds) {
-    const result = await action(leadId);
-    if (result.error) failed++;
-    else succeeded++;
+function normalizeIds(leadIds: string[]): string[] {
+  return Array.from(new Set(leadIds));
+}
+
+function bulkLimitError(ids: string[]): string | null {
+  if (ids.length === 0) return "No leads selected.";
+  if (ids.length > MAX_BULK_LEADS) return `Select at most ${MAX_BULK_LEADS} leads at a time.`;
+  return null;
+}
+
+// Runs the work 10 leads at a time. Strictly one-by-one is slow enough that
+// a large bulk action can time out; unbounded parallelism would hammer the database.
+async function mapInChunks<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += BULK_CONCURRENCY) {
+    const chunk = items.slice(i, i + BULK_CONCURRENCY);
+    results.push(...(await Promise.all(chunk.map(fn))));
   }
-  return { succeeded, failed };
+  return results;
+}
+
+async function runPerLead(
+  leadIds: string[],
+  action: (leadId: string) => Promise<{ error: string | null }>,
+): Promise<{ succeeded: number; failed: number }> {
+  const results = await mapInChunks(leadIds, action);
+  const failed = results.filter((r) => r.error).length;
+  return { succeeded: results.length - failed, failed };
 }
 
 function summarize(succeeded: number, failed: number, verb: string): string {
@@ -316,10 +412,41 @@ function summarize(succeeded: number, failed: number, verb: string): string {
 export async function bulkAssignStaff(leadIds: string[], staffId: string): Promise<BulkResult> {
   const permission = await assertCanManageCustomers();
   if (!permission.allowed) return { error: permission.error };
-  if (leadIds.length === 0) return { error: "No leads selected." };
 
-  const { succeeded, failed } = await runPerLead(leadIds, (id) => assignLeadStaff(id, staffId));
+  const ids = normalizeIds(leadIds);
+  const limitError = bulkLimitError(ids);
+  if (limitError) return { error: limitError };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const results = await mapInChunks(ids, (id) => assignLeadStaffCore(id, staffId, false));
+
+  let assignedCount = 0;
+  let failed = 0;
+  const previousStaffCounts: Record<string, number> = {};
+
+  results.forEach((r) => {
+    if (r.error) {
+      failed++;
+      return;
+    }
+    if (r.changed) {
+      assignedCount++;
+      if (r.previousStaffId && r.previousStaffId !== staffId) {
+        previousStaffCounts[r.previousStaffId] = (previousStaffCounts[r.previousStaffId] ?? 0) + 1;
+      }
+    }
+  });
+
+  if (assignedCount > 0) {
+    await notifyLeadsAssignedBulk(staffId, assignedCount, previousStaffCounts, user?.id ?? null);
+  }
+
   revalidatePath("/admin/leads");
+  const succeeded = results.length - failed;
   return {
     error: succeeded === 0 ? "Unable to assign staff to any selected lead." : null,
     summary: summarize(succeeded, failed, "Assigned staff on"),
@@ -329,10 +456,49 @@ export async function bulkAssignStaff(leadIds: string[], staffId: string): Promi
 export async function bulkChangeStage(leadIds: string[], stageId: string): Promise<BulkResult> {
   const permission = await assertCanManageCustomers();
   if (!permission.allowed) return { error: permission.error };
-  if (leadIds.length === 0) return { error: "No leads selected." };
 
-  const { succeeded, failed } = await runPerLead(leadIds, (id) => moveLeadStage(id, stageId));
+  const ids = normalizeIds(leadIds);
+  const limitError = bulkLimitError(ids);
+  if (limitError) return { error: limitError };
+
+  const supabase = await createClient();
+
+  const { data: target } = await supabase
+    .from("lead_stages")
+    .select("stage_type, name")
+    .eq("id", stageId)
+    .single();
+  if (!target) return { error: "That stage could not be found." };
+  if (target.stage_type !== "open") {
+    return {
+      error:
+        "Leads can't be closed in bulk. Use Mark Won or Mark Lost on each lead so the outcome is recorded.",
+    };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const results = await mapInChunks(ids, (id) => moveLeadStageCore(id, stageId, false));
+
+  let failed = 0;
+  const countsByStaff: Record<string, number> = {};
+
+  results.forEach((r) => {
+    if (r.error) {
+      failed++;
+      return;
+    }
+    if (r.moved && r.assignedStaffId) {
+      countsByStaff[r.assignedStaffId] = (countsByStaff[r.assignedStaffId] ?? 0) + 1;
+    }
+  });
+
+  await notifyLeadsStageChangedBulk(countsByStaff, target.name, user?.id ?? null);
+
   revalidatePath("/admin/leads");
+  const succeeded = results.length - failed;
   return {
     error: succeeded === 0 ? "Unable to move any selected lead." : null,
     summary: summarize(succeeded, failed, "Moved"),
@@ -342,9 +508,12 @@ export async function bulkChangeStage(leadIds: string[], stageId: string): Promi
 export async function bulkAddTag(leadIds: string[], tagId: string): Promise<BulkResult> {
   const permission = await assertCanManageCustomers();
   if (!permission.allowed) return { error: permission.error };
-  if (leadIds.length === 0) return { error: "No leads selected." };
 
-  const { succeeded, failed } = await runPerLead(leadIds, (id) => addLeadTag(id, tagId));
+  const ids = normalizeIds(leadIds);
+  const limitError = bulkLimitError(ids);
+  if (limitError) return { error: limitError };
+
+  const { succeeded, failed } = await runPerLead(ids, (id) => addLeadTag(id, tagId));
   revalidatePath("/admin/leads");
   return {
     error: succeeded === 0 ? "Unable to add the tag to any selected lead." : null,
@@ -355,9 +524,12 @@ export async function bulkAddTag(leadIds: string[], tagId: string): Promise<Bulk
 export async function bulkRemoveTag(leadIds: string[], tagId: string): Promise<BulkResult> {
   const permission = await assertCanManageCustomers();
   if (!permission.allowed) return { error: permission.error };
-  if (leadIds.length === 0) return { error: "No leads selected." };
 
-  const { succeeded, failed } = await runPerLead(leadIds, (id) => removeLeadTag(id, tagId));
+  const ids = normalizeIds(leadIds);
+  const limitError = bulkLimitError(ids);
+  if (limitError) return { error: limitError };
+
+  const { succeeded, failed } = await runPerLead(ids, (id) => removeLeadTag(id, tagId));
   revalidatePath("/admin/leads");
   return {
     error: succeeded === 0 ? "Unable to remove the tag from any selected lead." : null,
@@ -371,9 +543,12 @@ export async function bulkChangeTemperature(
 ): Promise<BulkResult> {
   const permission = await assertCanManageCustomers();
   if (!permission.allowed) return { error: permission.error };
-  if (leadIds.length === 0) return { error: "No leads selected." };
 
-  const { succeeded, failed } = await runPerLead(leadIds, (id) => changeLeadTemperature(id, temperature));
+  const ids = normalizeIds(leadIds);
+  const limitError = bulkLimitError(ids);
+  if (limitError) return { error: limitError };
+
+  const { succeeded, failed } = await runPerLead(ids, (id) => changeLeadTemperature(id, temperature));
   revalidatePath("/admin/leads");
   return {
     error: succeeded === 0 ? "Unable to update temperature on any selected lead." : null,
@@ -389,10 +564,13 @@ export async function bulkScheduleFollowUp(
 ): Promise<BulkResult> {
   const permission = await assertCanManageCustomers();
   if (!permission.allowed) return { error: permission.error };
-  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const ids = normalizeIds(leadIds);
+  const limitError = bulkLimitError(ids);
+  if (limitError) return { error: limitError };
   if (!date) return { error: "A date is required." };
 
-  const { succeeded, failed } = await runPerLead(leadIds, (id) => createFollowUp(id, type, date, time, ""));
+  const { succeeded, failed } = await runPerLead(ids, (id) => createFollowUp(id, type, date, time, ""));
   revalidatePath("/admin/leads");
   return {
     error: succeeded === 0 ? "Unable to schedule a follow-up for any selected lead." : null,
@@ -403,7 +581,10 @@ export async function bulkScheduleFollowUp(
 export async function bulkArchiveLeads(leadIds: string[]): Promise<BulkResult> {
   const permission = await assertCanManageCustomers();
   if (!permission.allowed) return { error: permission.error };
-  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const ids = normalizeIds(leadIds);
+  const limitError = bulkLimitError(ids);
+  if (limitError) return { error: limitError };
 
   const supabase = await createClient();
   const {
@@ -413,20 +594,22 @@ export async function bulkArchiveLeads(leadIds: string[]): Promise<BulkResult> {
   const { error } = await supabase
     .from("leads")
     .update({ archived_at: new Date().toISOString() })
-    .in("id", leadIds);
+    .in("id", ids);
   if (error) {
     console.error("bulkArchiveLeads error:", error);
     return { error: "Unable to archive the selected leads. Please try again." };
   }
 
-  await supabase.from("lead_activities").insert(
-    leadIds.map((lead_id) => ({
-      lead_id,
-      activity_type: "archived",
-      description: "Lead archived",
-      changed_by: user?.id ?? null,
-    })),
-  );
+  await supabase
+    .from("lead_activities")
+    .insert(
+      ids.map((lead_id) => ({
+        lead_id,
+        activity_type: "archived",
+        description: "Lead archived",
+        changed_by: user?.id ?? null,
+      })),
+    );
 
   revalidatePath("/admin/leads");
   return { error: null };
@@ -435,27 +618,32 @@ export async function bulkArchiveLeads(leadIds: string[]): Promise<BulkResult> {
 export async function bulkRestoreLeads(leadIds: string[]): Promise<BulkResult> {
   const permission = await assertCanManageCustomers();
   if (!permission.allowed) return { error: permission.error };
-  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const ids = normalizeIds(leadIds);
+  const limitError = bulkLimitError(ids);
+  if (limitError) return { error: limitError };
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { error } = await supabase.from("leads").update({ archived_at: null }).in("id", leadIds);
+  const { error } = await supabase.from("leads").update({ archived_at: null }).in("id", ids);
   if (error) {
     console.error("bulkRestoreLeads error:", error);
     return { error: "Unable to restore the selected leads. Please try again." };
   }
 
-  await supabase.from("lead_activities").insert(
-    leadIds.map((lead_id) => ({
-      lead_id,
-      activity_type: "restored",
-      description: "Lead restored",
-      changed_by: user?.id ?? null,
-    })),
-  );
+  await supabase
+    .from("lead_activities")
+    .insert(
+      ids.map((lead_id) => ({
+        lead_id,
+        activity_type: "restored",
+        description: "Lead restored",
+        changed_by: user?.id ?? null,
+      })),
+    );
 
   revalidatePath("/admin/leads");
   return { error: null };
@@ -464,18 +652,19 @@ export async function bulkRestoreLeads(leadIds: string[]): Promise<BulkResult> {
 export async function deleteLeads(leadIds: string[]): Promise<BulkResult> {
   const permission = await assertCanDeleteLeads();
   if (!permission.allowed) return { error: permission.error };
-  if (leadIds.length === 0) return { error: "No leads selected." };
+
+  const ids = normalizeIds(leadIds);
+  const limitError = bulkLimitError(ids);
+  if (limitError) return { error: limitError };
 
   const supabase = await createClient();
-  const { error, count } = await supabase.from("leads").delete({ count: "exact" }).in("id", leadIds);
+  const { error, count } = await supabase.from("leads").delete({ count: "exact" }).in("id", ids);
 
   if (error) {
     console.error("deleteLeads error:", error);
     return { error: "Unable to delete the selected lead(s). Please try again." };
   }
 
-  // RLS hides rows you aren't allowed to delete rather than raising an error,
-  // so a zero count means nothing was actually removed.
   if (!count) {
     return { error: "No leads were deleted. You may not have permission to delete these." };
   }

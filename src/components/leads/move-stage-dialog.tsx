@@ -22,21 +22,27 @@ export function MoveStageDialog({
   stages,
   onMoved,
 }: MoveStageDialogProps) {
+  const current = stages.find((s) => s.id === currentStageId);
+  const isClosed = !!current && current.stage_type !== "open";
+
   return (
     <SelectActionDialog
       isOpen={isOpen}
       onClose={onClose}
-      title="Move Lead to Stage"
-      selectLabel="Stage"
-      options={stages.filter((s) => s.id !== currentStageId).map((s) => ({ value: s.id, label: s.name }))}
-      confirmLabel="Move"
+      title={isClosed ? "Reopen Lead" : "Move Lead to Stage"}
+      selectLabel={isClosed ? "Reopen in Stage" : "Stage"}
+      // Only open stages: closing a lead goes through Mark Won / Mark Lost.
+      options={stages
+        .filter((s) => s.stage_type === "open" && s.id !== currentStageId)
+        .map((s) => ({ value: s.id, label: s.name }))}
+      confirmLabel={isClosed ? "Reopen" : "Move"}
       onConfirm={async (newStageId) => {
         const result = await moveLeadStage(leadId, newStageId);
         if (result.error) {
           toast.error(result.error);
           return;
         }
-        toast.success("Lead moved successfully");
+        toast.success(isClosed ? "Lead reopened" : "Lead moved successfully");
         onMoved(newStageId);
       }}
     />

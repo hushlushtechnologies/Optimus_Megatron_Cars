@@ -44,7 +44,7 @@ function getHref(notification: AppNotification): string | null {
   if (notification.entity_type === "lead" && notification.entity_id) {
     return `/admin/leads/${notification.entity_id}`;
   }
-
+  if (notification.entity_type === "leads") return "/admin/leads";
   return null;
 }
 
