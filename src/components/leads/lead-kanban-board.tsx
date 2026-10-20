@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -14,7 +15,7 @@ import { toast } from "sonner";
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
+  closestCorners,
   PointerSensor,
   KeyboardSensor,
   useSensor,
@@ -33,7 +34,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Info, TriangleAlert } from "lucide-react";
+import { AlertTriangle, GripVertical, Info, Layers3 } from "lucide-react";
 import { LeadPipeline } from "@/src/components/leads/lead-pipeline";
 import { LeadStageColumn } from "@/src/components/leads/lead-stage-column";
 import { LeadCard } from "@/src/components/leads/lead-card";
@@ -51,35 +52,21 @@ interface LeadKanbanBoardProps {
   openTruncated: boolean;
   lostReasons: LeadLostReason[];
 }
-
 type LeadsByStage = Record<string, LeadSummary[]>;
+type PendingClose = { lead: LeadSummary; outcome: "won" | "lost" };
 
-interface PendingClose {
-  lead: LeadSummary;
-  outcome: "won" | "lost";
-  snapshot: LeadsByStage;
-  /** Menu path: the card hasn't moved yet. Drag path: it already has. */
-  moveOnSuccess: boolean;
+function findStageOfLead(state: LeadsByStage, id: string) {
+  return Object.keys(state).find((stageId) => (state[stageId] ?? []).some((lead) => lead.id === id));
 }
-
-function withStage(lead: LeadSummary, stage: LeadStage): LeadSummary {
-  return lead.stage.id === stage.id ? lead : { ...lead, stage };
-}
-
-function applyMove(
-  prev: LeadsByStage,
-  leadId: string,
-  fromStageId: string,
-  toStage: LeadStage,
-): LeadsByStage {
-  const fromItems = prev[fromStageId] ?? [];
-  const lead = fromItems.find((l) => l.id === leadId);
-  if (!lead) return prev;
-
+function moveLead(state: LeadsByStage, id: string, destination: LeadStage): LeadsByStage {
+  const from = findStageOfLead(state, id);
+  if (!from || from === destination.id) return state;
+  const lead = state[from].find((item) => item.id === id);
+  if (!lead) return state;
   return {
-    ...prev,
-    [fromStageId]: fromItems.filter((l) => l.id !== leadId),
-    [toStage.id]: [withStage(lead, toStage), ...(prev[toStage.id] ?? [])],
+    ...state,
+    [from]: state[from].filter((item) => item.id !== id),
+    [destination.id]: [{ ...lead, stage: destination }, ...(state[destination.id] ?? [])],
   };
 }
 
@@ -90,306 +77,258 @@ export function LeadKanbanBoard({
   openTruncated,
   lostReasons,
 }: LeadKanbanBoardProps) {
-  const [leadsByStage, setLeadsByStage] = useState(initialLeadsByStage);
+  const [leadsByStage, setLeadsByStage] = useState<LeadsByStage>(initialLeadsByStage);
   const [activeLead, setActiveLead] = useState<LeadSummary | null>(null);
+  const [overStageId, setOverStageId] = useState<string | null>(null);
   const [pendingClose, setPendingClose] = useState<PendingClose | null>(null);
-  const prefersReducedMotion = useReducedMotion();
-
-  const stagesById = useMemo(() => new Map(stages.map((s) => [s.id, s])), [stages]);
-
-  // How many leads each column held when it loaded, so a live move can adjust
-  // the true total shown in the header (closed columns load only a slice).
-  const [initialLengths] = useState(() =>
-    Object.fromEntries(Object.entries(initialLeadsByStage).map(([id, list]) => [id, list.length])),
-  );
-
-  const snapshotRef = useRef<LeadsByStage | null>(null);
-  const startContainerRef = useRef<string | null>(null);
-  const currentContainerRef = useRef<string | null>(null);
-  const closeSucceededRef = useRef(false);
-
-  // Always holds the latest board, so the stable handlers below can take an
-  // accurate "before" snapshot without having to change identity every render.
-  const latestRef = useRef(leadsByStage);
-  useEffect(() => {
-    latestRef.current = leadsByStage;
-  }, [leadsByStage]);
-
+  const [showHelp, setShowHelp] = useState(false);
+  const [countsDelta, setCountsDelta] = useState<Record<string, number>>({});
+  const boardRef = useRef(leadsByStage);
+  const busyIds = useRef(new Set<string>());
+  const dndId = useId();
+  const reducedMotion = useReducedMotion();
+  const stagesById = useMemo(() => new Map(stages.map((stage) => [stage.id, stage])), [stages]);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 7 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const displayCount = (stageId: string) =>
-    (stageTotals[stageId] ?? 0) + (leadsByStage[stageId]?.length ?? 0) - (initialLengths[stageId] ?? 0);
+  useEffect(() => {
+    boardRef.current = leadsByStage;
+  }, [leadsByStage]);
 
-  function findContainer(id: string, state: LeadsByStage = leadsByStage): string | undefined {
-    if (id in state) return id;
-    return Object.keys(state).find((stageId) => state[stageId].some((l) => l.id === id));
-  }
-
-  function describeLead(id: string): string {
-    for (const stageId of Object.keys(leadsByStage)) {
-      const lead = leadsByStage[stageId].find((l) => l.id === id);
-      if (lead) return `${lead.lead_number}, ${lead.customer.full_name}`;
-    }
-    return "lead";
-  }
-
-  function stageNameFor(id: string): string {
-    const container = findContainer(id);
-    return stagesById.get(container ?? "")?.name ?? "an unknown stage";
-  }
-
-  const announcements: Announcements = {
-    onDragStart: ({ active }) =>
-      `Picked up lead ${describeLead(String(active.id))} from ${stageNameFor(String(active.id))}.`,
-    onDragOver: ({ active, over }) =>
-      over
-        ? `Lead ${describeLead(String(active.id))} is over ${stageNameFor(String(over.id))}.`
-        : `Lead ${describeLead(String(active.id))} is not over a stage.`,
-    onDragEnd: ({ active, over }) =>
-      over
-        ? `Dropped lead ${describeLead(String(active.id))} in ${stageNameFor(String(over.id))}.`
-        : `Lead ${describeLead(String(active.id))} was returned to its original stage.`,
-    onDragCancel: ({ active }) =>
-      `Move cancelled. Lead ${describeLead(String(active.id))} stays in its original stage.`,
-  };
-
-  function resetGesture() {
-    snapshotRef.current = null;
-    startContainerRef.current = null;
-    currentContainerRef.current = null;
-    setActiveLead(null);
-  }
-
-  const persist = useCallback(
-    async (leadId: string, toStageId: string, snapshot: LeadsByStage) => {
-      const result = await moveLeadStage(leadId, toStageId);
-      if (result.error) {
-        setLeadsByStage(snapshot);
-        toast.error(result.error);
-        return;
-      }
-      const newStage = stagesById.get(toStageId);
-      if (newStage) toast.success(`Lead moved to ${newStage.name}`);
+  const stageForTarget = useCallback(
+    (id: string | null) => {
+      if (!id) return null;
+      if (stagesById.has(id)) return id;
+      return findStageOfLead(boardRef.current, id) ?? null;
     },
     [stagesById],
   );
 
-  function handleDragStart(event: DragStartEvent) {
-    const id = String(event.active.id);
-    const container = findContainer(id);
-    if (!container) return;
+  const updateCount = (fromId: string, toId: string) => {
+    setCountsDelta((previous) => ({
+      ...previous,
+      [fromId]: (previous[fromId] ?? 0) - 1,
+      [toId]: (previous[toId] ?? 0) + 1,
+    }));
+  };
 
-    snapshotRef.current = leadsByStage;
-    startContainerRef.current = container;
-    currentContainerRef.current = container;
-    setActiveLead(leadsByStage[container].find((l) => l.id === id) ?? null);
-  }
+  const commitMove = useCallback(
+    async (lead: LeadSummary, destination: LeadStage) => {
+      const current = boardRef.current;
+      const fromId = findStageOfLead(current, lead.id);
+      if (!fromId || fromId === destination.id || busyIds.current.has(lead.id)) return;
+      busyIds.current.add(lead.id);
+      const snapshot = current;
+      const optimistic = moveLead(snapshot, lead.id, destination);
+      boardRef.current = optimistic;
+      setLeadsByStage(optimistic);
+      updateCount(fromId, destination.id);
+      try {
+        const result = await moveLeadStage(lead.id, destination.id);
+        if (result.error) throw new Error(result.error);
+        toast.success(`Moved to ${destination.name}`);
+      } catch (error) {
+        // Restore this lead only, rather than replacing unrelated moves made in the meantime.
+        const origin = stagesById.get(fromId);
+        if (origin) {
+          const restored = moveLead(boardRef.current, lead.id, origin);
+          boardRef.current = restored;
+          setLeadsByStage(restored);
+          updateCount(destination.id, fromId);
+        }
+        toast.error(error instanceof Error ? error.message : "Could not update lead stage");
+      } finally {
+        busyIds.current.delete(lead.id);
+      }
+    },
+    [stagesById],
+  );
 
-  function handleDragOver(event: DragOverEvent) {
-    const { active, over } = event;
-    if (!over) return;
-
-    const activeId = String(active.id);
-    const overId = String(over.id);
-    const activeContainer = findContainer(activeId);
-    const overContainer = findContainer(overId);
-
-    if (!activeContainer || !overContainer || activeContainer === overContainer) return;
-
-    const overStage = stagesById.get(overContainer);
-
-    setLeadsByStage((prev) => {
-      const activeItems = prev[activeContainer];
-      const overItems = prev[overContainer];
-      const activeIndex = activeItems.findIndex((l) => l.id === activeId);
-      if (activeIndex === -1) return prev;
-
-      // The moved card gets its new stage object straight away, so its menu
-      // never offers the column it's already in.
-      const moved = overStage ? withStage(activeItems[activeIndex], overStage) : activeItems[activeIndex];
-      const overIndex = overItems.findIndex((l) => l.id === overId);
-      const newOverItems = [...overItems];
-      newOverItems.splice(overIndex >= 0 ? overIndex : newOverItems.length, 0, moved);
-
-      return {
-        ...prev,
-        [activeContainer]: activeItems.filter((l) => l.id !== activeId),
-        [overContainer]: newOverItems,
-      };
-    });
-
-    currentContainerRef.current = overContainer;
-  }
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    const activeId = String(active.id);
-    const startContainer = startContainerRef.current;
-    const endContainer = currentContainerRef.current;
-    const snapshot = snapshotRef.current;
-
-    resetGesture();
-
-    if (!startContainer || !endContainer || !snapshot) return;
-
-    if (!over) {
-      setLeadsByStage(snapshot);
-      return;
-    }
-
-    if (endContainer !== startContainer) {
-      const fromStage = stagesById.get(startContainer);
-      const toStage = stagesById.get(endContainer);
-
-      // Closing a deal needs its outcome (and a reason, for Lost), so a drop
-      // on Won or Lost opens that dialog instead of saving a bare move.
-      if (toStage && toStage.stage_type !== "open") {
-        if (fromStage?.stage_type !== "open") {
-          setLeadsByStage(snapshot);
+  const requestMove = useCallback(
+    (lead: LeadSummary, destinationId: string) => {
+      const destination = stagesById.get(destinationId);
+      const currentId = findStageOfLead(boardRef.current, lead.id);
+      if (!destination || !currentId || currentId === destination.id) return;
+      const currentStage = stagesById.get(currentId);
+      if (destination.stage_type !== "open") {
+        if (currentStage?.stage_type !== "open") {
           toast.error("Reopen this lead before closing it again.");
           return;
         }
-        const lead = leadsByStage[endContainer]?.find((l) => l.id === activeId);
-        if (!lead) {
-          setLeadsByStage(snapshot);
-          return;
-        }
-        closeSucceededRef.current = false;
-        setPendingClose({
-          lead,
-          outcome: toStage.stage_type === "won" ? "won" : "lost",
-          snapshot,
-          moveOnSuccess: false,
-        });
+        setPendingClose({ lead, outcome: destination.stage_type === "won" ? "won" : "lost" });
         return;
       }
-
-      void persist(activeId, endContainer, snapshot);
-      return;
-    }
-
-    const overId = String(over.id);
-    setLeadsByStage((prev) => {
-      const items = prev[startContainer];
-      const oldIndex = items.findIndex((l) => l.id === activeId);
-      const newIndex = items.findIndex((l) => l.id === overId);
-      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return prev;
-      return { ...prev, [startContainer]: arrayMove(items, oldIndex, newIndex) };
-    });
-  }
-
-  function handleDragCancel() {
-    if (snapshotRef.current) setLeadsByStage(snapshotRef.current);
-    resetGesture();
-  }
-
-  // Stable across renders, so memoized cards aren't re-rendered during a drag.
-  const handleMoveToStage = useCallback(
-    (lead: LeadSummary, toStageId: string) => {
-      const toStage = stagesById.get(toStageId);
-      if (!toStage || toStageId === lead.stage.id) return;
-      const snapshot = latestRef.current;
-      setLeadsByStage((prev) => applyMove(prev, lead.id, lead.stage.id, toStage));
-      void persist(lead.id, toStageId, snapshot);
+      void commitMove(lead, destination);
     },
-    [persist, stagesById],
+    [commitMove, stagesById],
   );
 
+  const handleMoveToStage = useCallback(
+    (lead: LeadSummary, id: string) => requestMove(lead, id),
+    [requestMove],
+  );
   const handleMarkWon = useCallback((lead: LeadSummary) => {
-    closeSucceededRef.current = false;
-    setPendingClose({ lead, outcome: "won", snapshot: latestRef.current, moveOnSuccess: true });
+    setPendingClose({ lead, outcome: "won" });
   }, []);
-
   const handleMarkLost = useCallback((lead: LeadSummary) => {
-    closeSucceededRef.current = false;
-    setPendingClose({ lead, outcome: "lost", snapshot: latestRef.current, moveOnSuccess: true });
+    setPendingClose({ lead, outcome: "lost" });
   }, []);
 
-  function handleCloseSucceeded() {
-    closeSucceededRef.current = true;
-    if (pendingClose?.moveOnSuccess) {
-      const closedStage = stages.find((s) => s.stage_type === pendingClose.outcome);
-      if (closedStage) {
-        const { lead } = pendingClose;
-        setLeadsByStage((prev) => applyMove(prev, lead.id, lead.stage.id, closedStage));
-      }
+  function onDragStart(event: DragStartEvent) {
+    const id = String(event.active.id);
+    const from = findStageOfLead(boardRef.current, id);
+    const lead = from ? boardRef.current[from]?.find((item) => item.id === id) : null;
+    setActiveLead(lead ?? null);
+  }
+  function onDragOver(event: DragOverEvent) {
+    setOverStageId(stageForTarget(event.over ? String(event.over.id) : null));
+  }
+  function onDragEnd(event: DragEndEvent) {
+    const target = stageForTarget(event.over ? String(event.over.id) : null);
+    const lead = activeLead;
+    setActiveLead(null);
+    setOverStageId(null);
+    if (!lead || !target) return;
+    const source = findStageOfLead(boardRef.current, lead.id);
+    if (source !== target) {
+      requestMove(lead, target);
+      return;
     }
+    const overId = String(event.over?.id ?? "");
+    if (overId === lead.id || overId === target) return;
+    setLeadsByStage((previous) => {
+      const items = previous[target] ?? [];
+      const from = items.findIndex((item) => item.id === lead.id);
+      const to = items.findIndex((item) => item.id === overId);
+      if (from < 0 || to < 0 || from === to) return previous;
+      const next = { ...previous, [target]: arrayMove(items, from, to) };
+      boardRef.current = next;
+      return next;
+    });
+    // Same-stage ordering is visual only; persistence requires a dedicated ordering API.
+  }
+  function onDragCancel() {
+    setActiveLead(null);
+    setOverStageId(null);
   }
 
-  // Called by the dialog both after a success and on cancel. A success sets
-  // the flag first, so only a real cancel undoes the card's position.
-  function handleCloseDialogDismiss() {
-    if (closeSucceededRef.current) {
-      closeSucceededRef.current = false;
-    } else if (pendingClose) {
-      setLeadsByStage(pendingClose.snapshot);
-    }
+  function handleCloseSucceeded() {
+    if (!pendingClose) return;
+    const destination = stages.find((stage) => stage.stage_type === pendingClose.outcome);
+    if (!destination) return;
+    const fromId = findStageOfLead(boardRef.current, pendingClose.lead.id);
+    if (!fromId || fromId === destination.id) return;
+    const next = moveLead(boardRef.current, pendingClose.lead.id, destination);
+    boardRef.current = next;
+    setLeadsByStage(next);
+    updateCount(fromId, destination.id);
+  }
+  function dismissClose() {
     setPendingClose(null);
   }
 
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="border-border bg-card-hover/60 text-caption text-text-muted flex items-center gap-2 rounded-md border px-3 py-2">
-        <Info className="size-3.5 shrink-0" aria-hidden="true" />
-        Drag a card by its grip handle, or open the ⋮ menu to move it. Dropping on Won or Lost asks for the
-        outcome first.
-      </div>
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `Picked up lead ${String(active.id)}.`,
+    onDragOver: ({ over }) =>
+      over
+        ? `Over ${stagesById.get(stageForTarget(String(over.id)) ?? "")?.name ?? "lead"}.`
+        : "Outside a stage.",
+    onDragEnd: ({ over }) => (over ? "Lead dropped." : "Lead returned to its stage."),
+    onDragCancel: () => "Lead move cancelled.",
+  };
 
+  const totalOpen = stages
+    .filter((stage) => stage.stage_type === "open")
+    .reduce((sum, stage) => sum + (stageTotals[stage.id] ?? 0) + (countsDelta[stage.id] ?? 0), 0);
+  const loadedOpen = stages
+    .filter((stage) => stage.stage_type === "open")
+    .reduce((sum, stage) => sum + (leadsByStage[stage.id]?.length ?? 0), 0);
+
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="border-border bg-card flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
+        <div className="flex items-center gap-3">
+          <span className="border-primary/20 bg-primary/10 text-primary flex size-9 items-center justify-center rounded-lg border">
+            <Layers3 className="size-4" />
+          </span>
+          <div>
+            <h2 className="text-text-primary text-sm font-semibold">Pipeline board</h2>
+            <p className="text-text-muted text-[11px]">
+              {totalOpen.toLocaleString()} open leads · {loadedOpen.toLocaleString()} currently loaded
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowHelp((value) => !value)}
+          aria-expanded={showHelp}
+          className="text-text-muted hover:bg-card-hover hover:text-text-primary focus-visible:outline-primary inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-2"
+        >
+          <Info className="size-3.5" />
+          How to use
+        </button>
+      </div>
+      {showHelp && (
+        <div className="border-border bg-card-hover/50 text-text-muted rounded-lg border px-3 py-2.5 text-xs leading-relaxed">
+          Drag using the grip handle or use a leads actions menu to change stages. Keyboard: focus the grip,
+          press Space, use arrow keys, then press Space again. Won and Lost always require confirmation.
+        </div>
+      )}
       {openTruncated && (
         <div
           role="status"
-          className="text-caption text-text-primary flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2"
+          className="border-warning/30 bg-warning/10 text-text-primary flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs"
         >
-          <TriangleAlert className="size-3.5 shrink-0 text-amber-400" aria-hidden="true" />
-          Showing the first {KANBAN_OPEN_LEAD_CAP} open leads. Use search or filters to narrow the pipeline,
-          or switch to the Table view to browse everything.
+          <AlertTriangle className="text-warning mt-0.5 size-4 shrink-0" />
+          Showing up to {KANBAN_OPEN_LEAD_CAP} open leads. Use filters or Table view to browse the full
+          pipeline.
         </div>
       )}
 
       <DndContext
-        id="lead-kanban-dnd"
+        id={`lead-kanban-${dndId}`}
         sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
+        collisionDetection={closestCorners}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragEnd={onDragEnd}
+        onDragCancel={onDragCancel}
         accessibility={{
           announcements,
           screenReaderInstructions: {
             draggable:
-              "To pick up a lead, press Space or Enter. Use the arrow keys to move it between stages, Space or Enter to drop it, and Escape to cancel. You can also use the actions menu on the lead to move it to any stage.",
+              "Press Space to pick up a lead, use arrow keys to move, Space to drop, or Escape to cancel.",
           },
         }}
       >
         <LeadPipeline>
           {stages.map((stage) => {
-            const loaded = leadsByStage[stage.id]?.length ?? 0;
-            const total = displayCount(stage.id);
-
+            const items = leadsByStage[stage.id] ?? [];
+            const total = Math.max(0, (stageTotals[stage.id] ?? 0) + (countsDelta[stage.id] ?? 0));
+            const isTarget = !!activeLead && overStageId === stage.id;
             return (
               <LeadStageColumn
                 key={stage.id}
                 stage={stage}
                 count={total}
+                isDragging={!!activeLead}
+                isDropTarget={isTarget}
                 footer={
-                  total > loaded ? (
-                    <p className="text-caption text-text-subtle px-1">
-                      Showing the latest {loaded} of {total.toLocaleString()}. Use the Table view to browse
-                      them all.
+                  total > items.length ? (
+                    <p className="text-text-subtle text-[11px]">
+                      Showing {items.length} of {total.toLocaleString()} · See Table view for more
                     </p>
-                  ) : null
+                  ) : undefined
                 }
               >
-                <DroppableColumnBody stageId={stage.id}>
+                <DroppableColumnBody stageId={stage.id} isTarget={isTarget} empty={items.length === 0}>
                   <SortableContext
-                    items={(leadsByStage[stage.id] ?? []).map((l) => l.id)}
+                    items={items.map((lead) => lead.id)}
                     strategy={verticalListSortingStrategy}
                   >
-                    {(leadsByStage[stage.id] ?? []).map((lead) => (
+                    {items.map((lead) => (
                       <SortableLeadCard
                         key={lead.id}
                         lead={lead}
@@ -399,33 +338,30 @@ export function LeadKanbanBoard({
                         onMarkLost={handleMarkLost}
                       />
                     ))}
-                    {loaded === 0 && (
-                      <p className="text-caption text-text-subtle px-1 py-6 text-center">No leads here</p>
-                    )}
                   </SortableContext>
                 </DroppableColumnBody>
               </LeadStageColumn>
             );
           })}
         </LeadPipeline>
-
-        <DragOverlay dropAnimation={prefersReducedMotion ? null : undefined}>
+        <DragOverlay dropAnimation={reducedMotion ? null : undefined}>
           {activeLead ? (
-            <LeadCard lead={activeLead} className="ring-primary/50 pl-8 shadow-lg ring-2" />
+            <div className="w-[292px] rotate-[1deg] cursor-grabbing opacity-95 shadow-2xl">
+              <LeadCard lead={activeLead} className="border-primary/60 ring-primary/20 ring-2" />
+            </div>
           ) : null}
         </DragOverlay>
       </DndContext>
 
       <MarkWonDialog
         isOpen={pendingClose?.outcome === "won"}
-        onClose={handleCloseDialogDismiss}
+        onClose={dismissClose}
         leadId={pendingClose?.lead.id ?? ""}
         onMarked={handleCloseSucceeded}
       />
-
       <MarkLostDialog
         isOpen={pendingClose?.outcome === "lost"}
-        onClose={handleCloseDialogDismiss}
+        onClose={dismissClose}
         leadId={pendingClose?.lead.id ?? ""}
         reasons={lostReasons}
         onMarked={handleCloseSucceeded}
@@ -434,11 +370,32 @@ export function LeadKanbanBoard({
   );
 }
 
-function DroppableColumnBody({ stageId, children }: { stageId: string; children: ReactNode }) {
+function DroppableColumnBody({
+  stageId,
+  isTarget,
+  empty,
+  children,
+}: {
+  stageId: string;
+  isTarget: boolean;
+  empty: boolean;
+  children: ReactNode;
+}) {
   const { setNodeRef } = useDroppable({ id: stageId });
   return (
-    <div ref={setNodeRef} className="flex min-h-10 flex-col gap-2.5">
+    <div ref={setNodeRef} className="flex min-h-24 flex-col gap-2.5">
       {children}
+      {empty && (
+        <div
+          className={`flex min-h-28 flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-3 text-center transition-colors ${isTarget ? "border-primary/70 bg-primary/10 text-primary" : "border-border text-text-subtle"}`}
+        >
+          <Layers3 className="size-5 opacity-60" />
+          <span className="text-xs font-medium">
+            {isTarget ? "Drop lead here" : "No leads in this stage"}
+          </span>
+          <span className="text-[10px] opacity-75">Drag a lead here to move it</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -452,48 +409,40 @@ const SortableLeadCard = memo(function SortableLeadCard({
 }: {
   lead: LeadSummary;
   stages: LeadStage[];
-  onMoveToStage: (lead: LeadSummary, stageId: string) => void;
+  onMoveToStage: (lead: LeadSummary, id: string) => void;
   onMarkWon: (lead: LeadSummary) => void;
   onMarkLost: (lead: LeadSummary) => void;
 }) {
-  const prefersReducedMotion = useReducedMotion();
+  const reducedMotion = useReducedMotion();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({
-      id: lead.id,
-    });
-
-  // These keep the same identity from frame to frame during a drag (the lead
-  // and the board's handlers don't change), which is what lets LeadCard skip
-  // re-rendering.
-  const handleMove = useCallback((stageId: string) => onMoveToStage(lead, stageId), [lead, onMoveToStage]);
-  const handleWon = useCallback(() => onMarkWon(lead), [lead, onMarkWon]);
-  const handleLost = useCallback(() => onMarkLost(lead), [lead, onMarkLost]);
-
+    useSortable({ id: lead.id });
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition: prefersReducedMotion ? undefined : transition,
-    opacity: isDragging ? 0.35 : 1,
+    transition: reducedMotion ? undefined : transition,
+    opacity: isDragging ? 0.25 : 1,
   };
-
+  const move = useCallback((id: string) => onMoveToStage(lead, id), [lead, onMoveToStage]);
+  const won = useCallback(() => onMarkWon(lead), [lead, onMarkWon]);
+  const lost = useCallback(() => onMarkLost(lead), [lead, onMarkLost]);
   return (
     <div ref={setNodeRef} style={style} className="relative">
       <button
-        type="button"
         ref={setActivatorNodeRef}
+        type="button"
         {...attributes}
         {...listeners}
         aria-label={`Drag ${lead.lead_number} to another stage`}
-        className="text-text-subtle hover:bg-card-hover hover:text-text-muted focus-visible:ring-primary absolute top-3 left-1.5 z-10 flex size-6 cursor-grab touch-none items-center justify-center rounded before:absolute before:-inset-1.5 before:content-[''] focus-visible:ring-2 focus-visible:outline-none active:cursor-grabbing"
+        className="text-text-subtle hover:bg-card-hover hover:text-primary focus-visible:outline-primary absolute top-3 left-1 z-10 flex size-7 cursor-grab touch-none items-center justify-center rounded-md transition-colors focus-visible:outline-2 active:cursor-grabbing"
       >
-        <GripVertical className="size-4" aria-hidden="true" />
+        <GripVertical className="size-4" />
       </button>
       <LeadCard
         lead={lead}
         stages={stages}
-        onMoveToStage={handleMove}
-        onMarkWon={handleWon}
-        onMarkLost={handleLost}
-        className="pl-8"
+        onMoveToStage={move}
+        onMarkWon={won}
+        onMarkLost={lost}
+        className="pl-9"
       />
     </div>
   );

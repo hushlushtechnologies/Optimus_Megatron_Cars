@@ -22,6 +22,10 @@ import { CommunicationsTab } from "@/src/components/leads/profile-tabs/communica
 import { ActivityTab } from "@/src/components/leads/profile-tabs/activity-tab";
 import { HistoryTab } from "@/src/components/leads/profile-tabs/history-tab";
 import type { LeadLostReason, LeadStage, LeadSummary, LeadTag, LeadTemperature } from "@/src/lib/types/lead";
+import { LeadTestDrivesTab } from "@/src/components/leads/profile-tabs/lead-test-drives-tab";
+import type { LiveLeadAction } from "@/src/components/leads/future-module-actions";
+import type { TestDrivePermissions } from "@/src/lib/utils/test-drive-permissions";
+import type { TestDrivePanelLoad } from "@/src/lib/types/test-drive";
 import type { LeadFutureAction, LeadSourceOption, StaffOption } from "@/src/lib/supabase/lead-lookups";
 
 interface LeadDetailPageClientProps {
@@ -32,6 +36,8 @@ interface LeadDetailPageClientProps {
   lostReasons: LeadLostReason[];
   futureActions: LeadFutureAction[];
   sources: LeadSourceOption[];
+  testDrives: TestDrivePanelLoad;
+  testDrivePermissions: TestDrivePermissions;
 }
 
 export function LeadDetailPageClient({
@@ -42,6 +48,8 @@ export function LeadDetailPageClient({
   lostReasons,
   futureActions,
   sources,
+  testDrives,
+  testDrivePermissions,
 }: LeadDetailPageClientProps) {
   const router = useRouter();
   const [lead, setLead] = useState(initialLead);
@@ -68,6 +76,17 @@ export function LeadDetailPageClient({
   // fires, since Tabs only accepts an initial default.
   const [initialTab, setInitialTab] = useState("overview");
 
+  const leadIsOpen = lead.stage.stage_type === "open";
+
+  // Only Create Test Drive is live. It opens the booking form for this lead's customer and vehicle.
+  const liveActions: Record<string, LiveLeadAction> = {
+    test_drive: !testDrivePermissions.create
+      ? { disabledReason: "You don't have permission to create test drives." }
+      : !leadIsOpen
+        ? { disabledReason: "This lead is closed." }
+        : { href: `/admin/test-drives/new?leadId=${lead.id}` },
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <LeadDetailHeader
@@ -82,13 +101,14 @@ export function LeadDetailPageClient({
         onMarkLost={() => setMarkLostOpen(true)}
       />
 
-      <FutureModuleActions actions={futureActions} />
+      <FutureModuleActions actions={futureActions} liveActions={liveActions} />
 
       <Tabs key={initialTab} defaultTab={initialTab}>
         <TabsList>
           <Tab id="overview">Overview</Tab>
           <Tab id="customer">Customer</Tab>
           <Tab id="vehicle">Vehicle</Tab>
+          <Tab id="test-drives">Test Drives</Tab>
           <Tab id="follow-ups">Follow-Ups</Tab>
           <Tab id="notes">Notes</Tab>
           <Tab id="communications">Communications</Tab>
@@ -111,6 +131,14 @@ export function LeadDetailPageClient({
         </TabPanel>
         <TabPanel id="vehicle">
           <VehicleTab lead={lead} />
+        </TabPanel>
+        <TabPanel id="test-drives">
+          <LeadTestDrivesTab
+            load={testDrives}
+            leadId={lead.id}
+            leadIsOpen={leadIsOpen}
+            permissions={testDrivePermissions}
+          />
         </TabPanel>
         <TabPanel id="follow-ups">
           <FollowUpsTab leadId={lead.id} />

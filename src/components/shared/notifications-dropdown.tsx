@@ -13,6 +13,13 @@ import {
   Clock,
   AlertTriangle,
   CheckCheck,
+  CalendarClock,
+  Ban,
+  BadgeCheck,
+  BellRing,
+  CheckCircle2,
+  ClipboardList,
+  LogIn,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,6 +45,17 @@ const TYPE_ICON: Record<string, LucideIcon> = {
   lead_lost: XCircle,
   follow_up_due: Clock,
   follow_up_overdue: AlertTriangle,
+  test_drive_assigned: UserCheck,
+  test_drive_reassigned: ArrowRightLeft,
+  test_drive_rescheduled: CalendarClock,
+  test_drive_new_request: ClipboardList,
+  test_drive_approved: CheckCircle2,
+  test_drive_rejected: XCircle,
+  test_drive_cancelled: Ban,
+  test_drive_completed: BadgeCheck,
+  test_drive_reminder: BellRing,
+  test_drive_overdue: AlertTriangle,
+  test_drive_checked_in: LogIn,
 };
 
 function getHref(notification: AppNotification): string | null {
@@ -45,6 +63,9 @@ function getHref(notification: AppNotification): string | null {
     return `/admin/leads/${notification.entity_id}`;
   }
   if (notification.entity_type === "leads") return "/admin/leads";
+  if (notification.entity_type === "test_drive" && notification.entity_id) {
+    return `/admin/test-drives/${notification.entity_id}`;
+  }
   return null;
 }
 

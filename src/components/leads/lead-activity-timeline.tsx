@@ -20,6 +20,9 @@ import {
   Archive,
   ArchiveRestore,
   RefreshCw,
+  BadgeCheck,
+  Ban,
+  UserX,
   type LucideIcon,
 } from "lucide-react";
 import type { EnrichedLeadActivityEntry } from "@/src/lib/supabase/lead-activity-queries";
@@ -50,6 +53,13 @@ const TYPE_ICON: Record<string, LucideIcon> = {
   lead_updated: Pencil,
   archived: Archive,
   restored: ArchiveRestore,
+  test_drive_requested: CarFront,
+  test_drive_approved: CheckCircle2,
+  test_drive_rejected: XCircle,
+  test_drive_cancelled: Ban,
+  test_drive_rescheduled: CalendarClock,
+  test_drive_completed: BadgeCheck,
+  test_drive_no_show: UserX,
 };
 
 export function LeadActivityTimeline({

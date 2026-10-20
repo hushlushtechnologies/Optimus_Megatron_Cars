@@ -1,31 +1,92 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
-const STORAGE_KEY = "omc-inventory-view";
+/* =========================================================
+   TYPES
+========================================================= */
 
 export type InventoryView = "table" | "grid";
 
-function getInitialView(defaultView: InventoryView): InventoryView {
-  if (typeof window === "undefined") {
-    return defaultView;
-  }
+/* =========================================================
+   CONFIG
+========================================================= */
 
-  const saved = localStorage.getItem(STORAGE_KEY);
+const STORAGE_KEY = "omc-inventory-view";
 
-  return saved === "table" || saved === "grid" ? saved : defaultView;
+const STORAGE_EVENT = "omc-inventory-view-change";
+
+const DEFAULT_VIEW: InventoryView = "table";
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function isInventoryView(value: string | null): value is InventoryView {
+  return value === "table" || value === "grid";
 }
 
-export function useInventoryView(defaultView: InventoryView = "table") {
-  const [view, setViewState] = useState<InventoryView>(() => getInitialView(defaultView));
+/* =========================================================
+   SNAPSHOTS
+========================================================= */
+
+function getClientSnapshot(): InventoryView {
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+
+  return isInventoryView(stored) ? stored : DEFAULT_VIEW;
+}
+
+/**
+ * Critical:
+ *
+ * Server render AND hydration render both start with
+ * exactly the same value.
+ */
+function getServerSnapshot(): InventoryView {
+  return DEFAULT_VIEW;
+}
+
+/* =========================================================
+   SUBSCRIBE
+========================================================= */
+
+function subscribe(callback: () => void) {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY) {
+      callback();
+    }
+  };
+
+  const handleLocalChange = () => {
+    callback();
+  };
+
+  window.addEventListener("storage", handleStorage);
+
+  window.addEventListener(STORAGE_EVENT, handleLocalChange);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+
+    window.removeEventListener(STORAGE_EVENT, handleLocalChange);
+  };
+}
+
+/* =========================================================
+   HOOK
+========================================================= */
+
+export function useInventoryView() {
+  const view = useSyncExternalStore(subscribe, getClientSnapshot, getServerSnapshot);
 
   const setView = useCallback((next: InventoryView) => {
-    setViewState(next);
+    window.localStorage.setItem(STORAGE_KEY, next);
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, next);
-    }
+    window.dispatchEvent(new Event(STORAGE_EVENT));
   }, []);
 
-  return { view, setView };
+  return {
+    view,
+    setView,
+  };
 }

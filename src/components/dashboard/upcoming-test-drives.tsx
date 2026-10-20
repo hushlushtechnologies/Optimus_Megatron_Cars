@@ -28,7 +28,7 @@ export function UpcomingTestDrives() {
   const nextDrive = upcomingTestDrives[0];
 
   return (
-    <Card variant="elevated" padding="sm" className="group relative flex h-full flex-col overflow-hidden">
+    <Card variant="flat" padding="sm" className="group relative flex h-full flex-col overflow-hidden">
       {/* =====================================================
           AMBIENT BACKGROUND
       ===================================================== */}

@@ -555,13 +555,6 @@ export function InventoryToolbar({ resultCount, filterLookups }: InventoryToolba
                   <MenuSectionLabel>Workspace</MenuSectionLabel>
 
                   <MenuAction
-                    icon={<SlidersHorizontal className="size-3.5" aria-hidden="true" />}
-                    title="Customize columns"
-                    description="Choose visible table fields"
-                    onClick={() => toast.info("Column customization arrives in Phase 4")}
-                  />
-
-                  <MenuAction
                     icon={
                       <RefreshCw
                         className="size-3.5 transition-transform duration-300 group-hover/menu:rotate-45"

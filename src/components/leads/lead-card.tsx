@@ -1,9 +1,18 @@
+"use client";
+
 import Link from "next/link";
 import { memo } from "react";
-import { AlertTriangle, Car as CarIcon, Clock, MoreVertical, Trophy, XCircle } from "lucide-react";
-import { formatDistanceToNow, isPast } from "date-fns";
-import { Card } from "@/src/components/ui/card";
-import { IconButton } from "@/src/components/ui/icon-button";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  CarFront,
+  Clock3,
+  MoreHorizontal,
+  Trophy,
+  UserRound,
+  XCircle,
+} from "lucide-react";
+import { formatDistanceToNow, isPast, isValid } from "date-fns";
 import { Dropdown, DropdownTrigger, DropdownContent } from "@/src/components/ui/dropdown";
 import { LeadTemperatureBadge } from "@/src/components/leads/lead-temperature-badge";
 import { LeadTagPill } from "@/src/components/leads/lead-tag-pill";
@@ -13,16 +22,12 @@ import type { LeadStage, LeadSummary } from "@/src/lib/types/lead";
 interface LeadCardProps {
   lead: LeadSummary;
   className?: string;
-  /** All active stages. Only the open ones are offered for moving. */
   stages?: LeadStage[];
   onMoveToStage?: (stageId: string) => void;
   onMarkWon?: () => void;
   onMarkLost?: () => void;
 }
 
-// memo() matters on the Kanban board: while dragging, dnd-kit re-renders every
-// card on every frame. With stable props this whole card is skipped, so only
-// the thin sortable wrapper around it re-renders.
 export const LeadCard = memo(function LeadCard({
   lead,
   className,
@@ -32,134 +37,157 @@ export const LeadCard = memo(function LeadCard({
   onMarkLost,
 }: LeadCardProps) {
   const isOpen = lead.stage.stage_type === "open";
-  const openStages = stages?.filter((s) => s.stage_type === "open" && s.id !== lead.stage.id) ?? [];
+  const openStages =
+    stages?.filter((stage) => stage.stage_type === "open" && stage.id !== lead.stage.id) ?? [];
   const canMove = !!onMoveToStage && openStages.length > 0;
   const canClose = isOpen && (!!onMarkWon || !!onMarkLost);
-  const showMenu = canMove || canClose;
-
-  const followUpDate = lead.next_follow_up_at ? new Date(lead.next_follow_up_at) : null;
-  const isOverdue = followUpDate ? isPast(followUpDate) : false;
+  const followUp = lead.next_follow_up_at ? new Date(lead.next_follow_up_at) : null;
+  const validFollowUp = followUp && isValid(followUp) ? followUp : null;
+  const overdue = validFollowUp ? isPast(validFollowUp) && isOpen : false;
+  const created = new Date(lead.created_at);
+  const createdLabel = isValid(created) ? formatDistanceToNow(created, { addSuffix: true }) : "Recently";
 
   return (
-    <Card variant="elevated" padding="sm" className={cn("flex flex-col gap-2.5", className)}>
-      <div className="flex items-start justify-between gap-2">
-        <Link href={`/admin/leads/${lead.id}`} className="hover:text-primary-text min-w-0">
-          <p className="text-caption text-text-subtle truncate">{lead.lead_number}</p>
-          <p className="text-text-primary truncate font-medium">{lead.customer.full_name}</p>
-        </Link>
-
-        <div className="flex shrink-0 items-center gap-1">
-          <LeadTemperatureBadge temperature={lead.temperature} />
-          {showMenu && (
-            <Dropdown>
-              <DropdownTrigger>
-                <IconButton aria-label={`Actions for ${lead.lead_number}`} variant="ghost" size="sm">
-                  <MoreVertical className="size-3.5" />
-                </IconButton>
-              </DropdownTrigger>
-              <DropdownContent align="end" className="w-52 py-1">
-                {canMove && (
-                  <>
-                    <p className="text-caption text-text-subtle px-4 py-1.5">
-                      {isOpen ? "Move to Stage" : "Reopen in Stage"}
-                    </p>
-                    {openStages.map((stage) => (
-                      <button
-                        key={stage.id}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => onMoveToStage?.(stage.id)}
-                        className="text-body-sm text-text-primary hover:bg-card-hover flex w-full items-center gap-2.5 px-4 py-2 text-left"
-                      >
-                        <span
-                          aria-hidden="true"
-                          className="size-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: stage.color_hex }}
-                        />
-                        {stage.name}
-                      </button>
-                    ))}
-                  </>
-                )}
-                {canClose && (
-                  <>
-                    <div className="border-border my-1 border-t" role="separator" />
-                    {onMarkWon && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={onMarkWon}
-                        className="text-body-sm text-text-primary hover:bg-card-hover flex w-full items-center gap-2.5 px-4 py-2 text-left"
-                      >
-                        <Trophy className="text-text-muted size-4" aria-hidden="true" />
-                        Mark as Won…
-                      </button>
-                    )}
-                    {onMarkLost && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={onMarkLost}
-                        className="text-body-sm text-text-primary hover:bg-card-hover flex w-full items-center gap-2.5 px-4 py-2 text-left"
-                      >
-                        <XCircle className="text-text-muted size-4" aria-hidden="true" />
-                        Mark as Lost…
-                      </button>
-                    )}
-                  </>
-                )}
-              </DropdownContent>
-            </Dropdown>
-          )}
+    <article
+      className={cn(
+        "group border-border bg-card relative overflow-hidden rounded-lg border p-3 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-[border-color,box-shadow,transform] duration-150",
+        "hover:border-primary/35 focus-within:border-primary/50 hover:-translate-y-0.5 hover:shadow-[0_7px_22px_rgba(0,0,0,0.12)]",
+        overdue && "border-l-danger border-l-[3px]",
+        className,
+      )}
+    >
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <Link
+            href={`/admin/leads/${lead.id}`}
+            className="group/link focus-visible:outline-primary block min-w-0 rounded-sm focus-visible:outline-2"
+          >
+            <span className="text-text-subtle block truncate text-[10px] font-medium tracking-wide">
+              {lead.lead_number}
+            </span>
+            <span className="text-text-primary group-hover/link:text-primary mt-0.5 flex items-center gap-1 truncate text-[13px] font-semibold transition-colors">
+              <span className="truncate">{lead.customer.full_name}</span>
+              <ArrowUpRight
+                className="size-3 shrink-0 opacity-0 transition-opacity group-hover/link:opacity-100"
+                aria-hidden="true"
+              />
+            </span>
+          </Link>
         </div>
+        {(canMove || canClose) && (
+          <Dropdown>
+            <DropdownTrigger>
+              <button
+                type="button"
+                aria-label={`Actions for ${lead.lead_number}`}
+                className="text-text-muted hover:bg-card-hover hover:text-text-primary focus-visible:outline-primary flex size-7 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-2"
+              >
+                <MoreHorizontal className="size-4" />
+              </button>
+            </DropdownTrigger>
+            <DropdownContent align="end" className="w-52 py-1">
+              {canMove && (
+                <>
+                  <p className="text-text-subtle px-3 py-1.5 text-[11px] font-medium">
+                    {isOpen ? "Move to stage" : "Reopen in stage"}
+                  </p>
+                  {openStages.map((stage) => (
+                    <button
+                      key={stage.id}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => onMoveToStage?.(stage.id)}
+                      className="text-text-primary hover:bg-card-hover flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs"
+                    >
+                      <span className="size-2 rounded-full" style={{ backgroundColor: stage.color_hex }} />
+                      {stage.name}
+                    </button>
+                  ))}
+                </>
+              )}
+              {canClose && (
+                <>
+                  <div className="border-border my-1 border-t" role="separator" />
+                  {onMarkWon && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={onMarkWon}
+                      className="text-text-primary hover:bg-card-hover flex w-full items-center gap-2 px-3 py-2 text-left text-xs"
+                    >
+                      <Trophy className="text-success size-4" />
+                      Mark as Won…
+                    </button>
+                  )}
+                  {onMarkLost && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={onMarkLost}
+                      className="text-text-primary hover:bg-card-hover flex w-full items-center gap-2 px-3 py-2 text-left text-xs"
+                    >
+                      <XCircle className="text-danger size-4" />
+                      Mark as Lost…
+                    </button>
+                  )}
+                </>
+              )}
+            </DropdownContent>
+          </Dropdown>
+        )}
       </div>
 
-      {lead.vehicle ? (
-        <div className="text-body-sm text-text-muted flex items-center gap-1.5">
-          <CarIcon className="size-3.5 shrink-0" aria-hidden="true" />
-          <span className="truncate">{lead.vehicle.display_title}</span>
-          {lead.vehicle.brand_name && (
-            <span className="text-caption text-text-subtle shrink-0">· {lead.vehicle.brand_name}</span>
-          )}
-        </div>
-      ) : (
-        <p className="text-body-sm text-text-subtle">No vehicle linked yet</p>
-      )}
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <LeadTemperatureBadge temperature={lead.temperature} />
+        {validFollowUp && (
+          <span
+            className={cn(
+              "inline-flex min-w-0 items-center gap-1 truncate text-[10px] font-medium",
+              overdue ? "text-danger" : "text-text-muted",
+            )}
+            title={validFollowUp.toLocaleString()}
+          >
+            {overdue ? <AlertTriangle className="size-3 shrink-0" /> : <Clock3 className="size-3 shrink-0" />}
+            <span className="truncate">
+              {overdue ? "Overdue" : "Follow-up"} {formatDistanceToNow(validFollowUp, { addSuffix: true })}
+            </span>
+          </span>
+        )}
+      </div>
+
+      <div className="bg-card-hover/70 text-text-muted flex min-w-0 items-center gap-2 rounded-md px-2.5 py-2 text-[11px]">
+        <CarFront className="text-text-subtle size-4 shrink-0" aria-hidden="true" />
+        <span className="truncate">{lead.vehicle?.display_title ?? "Vehicle not selected"}</span>
+      </div>
 
       {lead.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {lead.tags.slice(0, 3).map((tag) => (
+        <div className="mt-2.5 flex flex-wrap items-center gap-1">
+          {lead.tags.slice(0, 2).map((tag) => (
             <LeadTagPill key={tag.id} tag={tag} />
           ))}
-          {lead.tags.length > 3 && (
-            <span className="text-caption text-text-subtle">+{lead.tags.length - 3}</span>
+          {lead.tags.length > 2 && (
+            <span className="text-text-subtle text-[10px]">+{lead.tags.length - 2}</span>
           )}
         </div>
       )}
 
-      <div className="border-border text-caption text-text-subtle flex items-center justify-between gap-2 border-t pt-2">
-        <span className="truncate">{lead.assigned_staff_name ?? "Unassigned"}</span>
-        {lead.source_name && <span className="truncate">{lead.source_name}</span>}
-      </div>
-
-      {followUpDate && (
-        <p
-          className="text-caption flex items-center gap-1.5 text-[var(--omc-status-text)]"
-          style={{ "--omc-status-raw": isOverdue ? "#f87171" : "#f59e0b" } as React.CSSProperties}
+      <div className="border-border mt-3 flex items-center justify-between gap-2 border-t pt-2.5">
+        <div
+          className="text-text-muted flex min-w-0 items-center gap-1.5 text-[10px]"
+          title={lead.assigned_staff_name ?? "Unassigned"}
         >
-          {isOverdue ? (
-            <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
-          ) : (
-            <Clock className="size-3 shrink-0" aria-hidden="true" />
-          )}
-          {isOverdue ? "Follow-up overdue" : "Follow up"}{" "}
-          {formatDistanceToNow(followUpDate, { addSuffix: true })}
-        </p>
+          <span className="bg-primary/10 text-primary flex size-5 shrink-0 items-center justify-center rounded-full">
+            <UserRound className="size-3" />
+          </span>
+          <span className="truncate">{lead.assigned_staff_name ?? "Unassigned"}</span>
+        </div>
+        <span className="text-text-subtle shrink-0 text-[10px]" title={`Created ${createdLabel}`}>
+          {createdLabel}
+        </span>
+      </div>
+      {lead.source_name && (
+        <p className="text-text-subtle mt-1.5 truncate text-[10px]">Source: {lead.source_name}</p>
       )}
-
-      <p className="text-caption text-text-subtle">
-        Created {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true })}
-      </p>
-    </Card>
+    </article>
   );
 });

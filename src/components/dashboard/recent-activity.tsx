@@ -78,7 +78,7 @@ function getActivityVisual(label: string, detail: string): ActivityVisual {
 
 export function RecentActivity() {
   return (
-    <Card variant="elevated" padding="sm" className="group relative flex h-full flex-col overflow-hidden">
+    <Card variant="flat" padding="sm" className="group relative flex h-full flex-col overflow-hidden">
       {/* =====================================================
           AMBIENT BACKGROUND
       ===================================================== */}

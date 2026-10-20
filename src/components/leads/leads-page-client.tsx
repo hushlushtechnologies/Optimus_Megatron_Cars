@@ -25,6 +25,7 @@ import { parseLeadFilters, countActiveLeadFilters } from "@/src/lib/utils/lead-f
 import type { LeadMetrics, LeadKanbanData, LeadRow } from "@/src/lib/supabase/lead-queries";
 import type { LeadFilterLookups } from "@/src/lib/supabase/lead-lookups";
 import type { LeadLostReason } from "@/src/lib/types/lead";
+import { Button } from "@/src/components/ui/button";
 
 interface LeadsPageClientProps {
   metrics: LeadMetrics;
@@ -78,17 +79,15 @@ export function LeadsPageClient({
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-h1">Leads</h1>
+          <h1 className="text-h3">Leads</h1>
           <p className="text-body-sm text-text-muted">
             Every customer opportunity, tracked from first contact through to a sale.
           </p>
         </div>
-        <Link
-          href="/admin/leads/new"
-          className="bg-primary text-body hover:bg-primary-hover inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 text-[#0b1220] transition-colors"
-        >
-          <Plus className="size-4" aria-hidden="true" />
-          Add Lead
+        <Link href="/admin/leads/new">
+          <Button variant="gradient" size="sm" leftIcon={<Plus className="size-4" />}>
+            Add Lead
+          </Button>
         </Link>
       </div>
 

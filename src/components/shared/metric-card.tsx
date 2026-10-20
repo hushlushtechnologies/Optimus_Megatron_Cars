@@ -1,10 +1,10 @@
 "use client";
 
-import { cloneElement, isValidElement, type KeyboardEvent, type ReactElement } from "react";
+import { cloneElement, isValidElement, useId, type KeyboardEvent, type ReactElement } from "react";
 
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 
 import { useCountUp } from "@/src/hooks/use-count-up";
 import { useReducedMotion } from "@/src/hooks/use-reduced-motion";
@@ -20,7 +20,9 @@ type IconProps = {
   "aria-hidden"?: string;
 };
 
-interface MetricCardProps {
+export type MetricChangeTone = "positive" | "negative" | "neutral";
+
+export interface MetricCardProps {
   label: string;
   value: number;
 
@@ -28,21 +30,53 @@ interface MetricCardProps {
   suffix?: string;
 
   /**
-   * Pass a rendered icon element:
+   * Pass a rendered icon element.
    *
+   * Correct:
    * icon={<Car />}
    *
-   * Do not pass:
-   *
+   * Incorrect:
    * icon={Car}
    *
-   * This component can be rendered from a Server Component,
-   * so we pass the rendered JSX element across the boundary.
+   * This allows the element to cross the
+   * Server Component / Client Component boundary.
    */
   icon?: ReactElement<IconProps>;
 
+  /**
+   * Numeric change.
+   *
+   * Positive number = increase.
+   * Negative number = decrease.
+   * Zero = unchanged.
+   */
   change?: number;
+
+  /**
+   * Controls the semantic color of the change.
+   *
+   * positive -> green
+   * negative -> red
+   * neutral  -> muted
+   *
+   * If omitted, the color is determined
+   * automatically from the change direction.
+   */
+  changeTone?: MetricChangeTone;
+
+  /**
+   * Comparison description.
+   */
   comparisonLabel?: string;
+
+  /**
+   * Set to true only when change is a percentage.
+   */
+  changeIsPercentage?: boolean;
+
+  /**
+   * Historical data for the sparkline.
+   */
   trend?: number[];
 
   isLoading?: boolean;
@@ -64,11 +98,8 @@ function getMetricAccent(label: string) {
       icon: "text-success",
       iconBackground: "bg-success/[0.07]",
       iconBorder: "border-success/15",
-
       spotlight: "bg-success/[0.08]",
-
       topLine: "bg-gradient-to-r from-success/45 to-transparent",
-
       spark: "var(--omc-success)",
     };
   }
@@ -80,11 +111,8 @@ function getMetricAccent(label: string) {
       icon: "text-warning",
       iconBackground: "bg-warning/[0.07]",
       iconBorder: "border-warning/15",
-
       spotlight: "bg-warning/[0.07]",
-
       topLine: "bg-gradient-to-r from-warning/45 to-transparent",
-
       spark: "var(--omc-warning)",
     };
   }
@@ -96,11 +124,8 @@ function getMetricAccent(label: string) {
       icon: "text-primary",
       iconBackground: "bg-primary/[0.07]",
       iconBorder: "border-primary/15",
-
       spotlight: "bg-primary/[0.07]",
-
       topLine: "bg-gradient-to-r from-primary/45 to-transparent",
-
       spark: "var(--omc-primary)",
     };
   }
@@ -112,11 +137,8 @@ function getMetricAccent(label: string) {
       icon: "text-blue-400",
       iconBackground: "bg-blue-400/[0.07]",
       iconBorder: "border-blue-400/15",
-
       spotlight: "bg-blue-400/[0.07]",
-
       topLine: "bg-gradient-to-r from-blue-400/40 to-transparent",
-
       spark: "#60a5fa",
     };
   }
@@ -128,11 +150,8 @@ function getMetricAccent(label: string) {
       icon: "text-text-muted",
       iconBackground: "bg-card-hover",
       iconBorder: "border-border",
-
-      spotlight: "bg-white/[0.035]",
-
+      spotlight: "bg-text-muted/[0.06]",
       topLine: "bg-gradient-to-r from-text-subtle/30 to-transparent",
-
       spark: "var(--omc-text-muted)",
     };
   }
@@ -143,13 +162,28 @@ function getMetricAccent(label: string) {
     icon: "text-primary",
     iconBackground: "bg-primary/[0.07]",
     iconBorder: "border-primary/15",
-
     spotlight: "bg-primary/[0.07]",
-
     topLine: "bg-gradient-to-r from-primary/45 to-transparent",
-
     spark: "var(--omc-primary)",
   };
+}
+
+/* =========================================================
+   CHANGE TONE
+========================================================= */
+
+function getChangeToneClass(tone: MetricChangeTone) {
+  switch (tone) {
+    case "positive":
+      return "text-success";
+
+    case "negative":
+      return "text-danger";
+
+    case "neutral":
+    default:
+      return "text-text-muted";
+  }
 }
 
 /* =========================================================
@@ -166,11 +200,13 @@ export function MetricCard({
   icon,
 
   change,
+  changeTone,
   comparisonLabel = "vs yesterday",
+  changeIsPercentage = true,
 
   trend,
 
-  isLoading,
+  isLoading = false,
   onClick,
 }: MetricCardProps) {
   const animatedValue = useCountUp(value);
@@ -179,11 +215,20 @@ export function MetricCard({
 
   const accent = getMetricAccent(label);
 
+  const generatedId = useId();
+
   /* =======================================================
      CHANGE
   ======================================================= */
 
-  const isPositive = (change ?? 0) >= 0;
+  const isIncrease = (change ?? 0) > 0;
+  const isDecrease = (change ?? 0) < 0;
+  const isUnchanged = change === 0;
+
+  const resolvedChangeTone: MetricChangeTone =
+    changeTone ?? (isIncrease ? "positive" : isDecrease ? "negative" : "neutral");
+
+  const changeColorClass = getChangeToneClass(resolvedChangeTone);
 
   /* =======================================================
      CHART
@@ -196,18 +241,17 @@ export function MetricCard({
 
   const hasTrend = chartData !== undefined && chartData.length > 1;
 
-  const sparklineId = `metric-spark-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const sparklineId = `metric-spark-${generatedId.replace(/:/g, "")}`;
 
   /* =======================================================
      KEYBOARD INTERACTION
   ======================================================= */
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (!onClick) return;
+    if (!onClick || isLoading) return;
 
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-
       onClick();
     }
   }
@@ -218,24 +262,20 @@ export function MetricCard({
 
   if (isLoading) {
     return (
-      <div className="border-border bg-card relative min-w-0 overflow-hidden border-r border-b px-4 py-4 xl:border-b-0">
-        {/* Header */}
-
+      <div
+        className="border-border bg-card relative min-w-0 overflow-hidden rounded-2xl border px-4 py-4"
+        aria-busy="true"
+        aria-label={`Loading ${label}`}
+      >
         <div className="flex items-center gap-2.5">
           <Skeleton className="size-8 shrink-0 rounded-md" />
-
           <Skeleton className="h-2.5 w-20" />
         </div>
 
-        {/* Value */}
-
         <div className="mt-3 flex items-end justify-between gap-3">
           <Skeleton className="h-6 w-16" />
-
           <Skeleton className="h-6 w-14" />
         </div>
-
-        {/* Meta */}
 
         <Skeleton className="mt-2 h-2.5 w-24" />
       </div>
@@ -253,13 +293,12 @@ export function MetricCard({
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       className={cn(
-        `group border-border bg-card relative min-w-0 overflow-hidden rounded-lg border-r border-b px-4 py-4 transition-[background-color,border-color] duration-150 xl:border-b-0`,
-
+        `group border-border bg-card relative min-w-0 overflow-hidden rounded-2xl border px-4 py-4 transition-[background-color,border-color] duration-150`,
         onClick && `hover:bg-card-hover/30 cursor-pointer`,
       )}
     >
       {/* ===================================================
-          SPOTLIGHT
+          PRIMARY SPOTLIGHT
       =================================================== */}
 
       <div
@@ -270,7 +309,9 @@ export function MetricCard({
         )}
       />
 
-      {/* Secondary softer spotlight */}
+      {/* ===================================================
+          SECONDARY SPOTLIGHT
+      =================================================== */}
 
       <div
         aria-hidden="true"
@@ -305,7 +346,6 @@ export function MetricCard({
             <div
               className={cn(
                 `flex size-8 shrink-0 items-center justify-center rounded-md border`,
-
                 accent.iconBackground,
                 accent.iconBorder,
                 accent.icon,
@@ -313,7 +353,6 @@ export function MetricCard({
             >
               {cloneElement(icon, {
                 className: cn("size-3.5", icon.props.className),
-
                 "aria-hidden": "true",
               })}
             </div>
@@ -321,9 +360,7 @@ export function MetricCard({
 
           {/* Label */}
 
-          <p className="text-text-subtle min-w-0 truncate text-[10px] leading-4 font-semibold tracking-[0.055em] uppercase">
-            {label}
-          </p>
+          <p className="text-text-primary min-w-0 truncate text-[12px] leading-4 font-semibold">{label}</p>
         </div>
 
         {/* =================================================
@@ -335,9 +372,7 @@ export function MetricCard({
 
           <p className="text-text-primary min-w-0 truncate text-[22px] leading-none font-semibold tracking-[-0.025em] tabular-nums sm:text-[23px]">
             {prefix}
-
             {Math.round(animatedValue).toLocaleString()}
-
             {suffix}
           </p>
 
@@ -380,32 +415,37 @@ export function MetricCard({
         </div>
 
         {/* =================================================
-            META / CHANGE
+            CHANGE / COMPARISON
         ================================================= */}
 
         <div className="mt-2 flex min-h-4 min-w-0 items-center gap-1.5">
           {change !== undefined ? (
             <>
-              {/* Change */}
+              {/* Change indicator */}
 
               <span
                 className={cn(
                   `inline-flex shrink-0 items-center gap-0.5 text-[10px] font-semibold tabular-nums`,
-
-                  isPositive ? "text-success" : "text-danger",
+                  changeColorClass,
                 )}
               >
-                {isPositive ? (
+                {isIncrease ? (
                   <ArrowUpRight className="size-3" strokeWidth={2} aria-hidden="true" />
-                ) : (
+                ) : isDecrease ? (
                   <ArrowDownRight className="size-3" strokeWidth={2} aria-hidden="true" />
+                ) : (
+                  <Minus className="size-3" strokeWidth={2} aria-hidden="true" />
                 )}
-                {Math.abs(change)}%
+
+                {Math.abs(change).toLocaleString()}
+                {changeIsPercentage ? "%" : ""}
               </span>
 
-              {/* Comparison */}
+              {/* Comparison label */}
 
-              <span className="text-text-subtle min-w-0 truncate text-[10px]">{comparisonLabel}</span>
+              <span className="text-text-subtle min-w-0 truncate text-[10px]">
+                {isUnchanged ? comparisonLabel : comparisonLabel}
+              </span>
             </>
           ) : (
             <span className="text-text-subtle truncate text-[10px]">Current inventory</span>

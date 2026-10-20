@@ -1,19 +1,34 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { Search, Filter, Archive, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
+
+import {
+  Archive,
+  Check,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Filter,
+  MoreHorizontal,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 
 import { Input } from "@/src/components/ui/input";
+import { IconButton } from "@/src/components/ui/icon-button";
 import { Button } from "@/src/components/ui/button";
+
+import { Dropdown, DropdownContent, DropdownTrigger } from "@/src/components/ui/dropdown";
 
 import { SortControl } from "@/src/components/shared/sort-control";
 import { FilterBar } from "@/src/components/shared/filter-bar";
 
 import { CustomerFilterDrawer } from "@/src/components/customers/customer-filter-drawer";
-import { ExportMenu } from "@/src/components/shared/export-menu";
+
 import { triggerDownloadFromUrl } from "@/src/lib/utils/trigger-download";
 
 import {
@@ -55,10 +70,24 @@ const SORT_OPTIONS = [
 ];
 
 /* =========================================================
-   FILTER LABELS
+   TYPES
 ========================================================= */
 
+interface CustomerToolbarProps {
+  resultCount: number;
+  filterLookups: CustomerFilterLookups;
+}
+
+interface FilterChip {
+  key: string;
+  label: string;
+}
+
 type FilterValue = string | boolean;
+
+/* =========================================================
+   FILTER LABELS
+========================================================= */
 
 const FILTER_LABEL_MAP: Record<
   keyof CustomerFilters,
@@ -89,20 +118,6 @@ const FILTER_LABEL_MAP: Record<
 };
 
 /* =========================================================
-   TYPES
-========================================================= */
-
-interface CustomerToolbarProps {
-  resultCount: number;
-  filterLookups: CustomerFilterLookups;
-}
-
-interface FilterChip {
-  key: string;
-  label: string;
-}
-
-/* =========================================================
    COMPONENT
 ========================================================= */
 
@@ -125,11 +140,6 @@ export function CustomerToolbar({ resultCount, filterLookups }: CustomerToolbarP
 
   const sort = searchParams.get("sort") ?? "newest";
 
-  /*
-   * Phase 14:
-   * archived=true means we are viewing
-   * archived customers.
-   */
   const isArchivedView = searchParams.get("archived") === "true";
 
   const filters = parseCustomerFilters(Object.fromEntries(searchParams.entries()));
@@ -163,19 +173,17 @@ export function CustomerToolbar({ resultCount, filterLookups }: CustomerToolbarP
   ========================================================= */
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
+    const timeout = window.setTimeout(() => {
       const params = new URLSearchParams(searchParams.toString());
 
-      if (searchValue) {
-        params.set("q", searchValue);
+      const query = searchValue.trim();
+
+      if (query) {
+        params.set("q", query);
       } else {
         params.delete("q");
       }
 
-      /*
-       * Always reset pagination when
-       * the search changes.
-       */
       params.set("page", "1");
 
       startTransition(() => {
@@ -183,7 +191,9 @@ export function CustomerToolbar({ resultCount, filterLookups }: CustomerToolbarP
       });
     }, 350);
 
-    return () => clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(timeout);
+    };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchValue]);
@@ -212,25 +222,11 @@ export function CustomerToolbar({ resultCount, filterLookups }: CustomerToolbarP
     const params = new URLSearchParams(searchParams.toString());
 
     if (isArchivedView) {
-      /*
-       * Returning to the normal
-       * customer list.
-       *
-       * No archived param means:
-       * archived = false.
-       */
       params.delete("archived");
     } else {
-      /*
-       * Switch to archived customers.
-       */
       params.set("archived", "true");
     }
 
-    /*
-     * Always return to page 1
-     * when changing views.
-     */
     params.set("page", "1");
 
     startTransition(() => {
@@ -245,7 +241,9 @@ export function CustomerToolbar({ resultCount, filterLookups }: CustomerToolbarP
   const applyFilters = (next: CustomerFilters, tagIds: string[]) => {
     const params = new URLSearchParams(searchParams.toString());
 
-    (Object.keys(FILTER_LABEL_MAP) as (keyof CustomerFilters)[]).forEach((key) => params.delete(key));
+    (Object.keys(FILTER_LABEL_MAP) as (keyof CustomerFilters)[]).forEach((key) => {
+      params.delete(key);
+    });
 
     Object.entries(next).forEach(([key, value]) => {
       if (value !== undefined && value !== "") {
@@ -264,17 +262,6 @@ export function CustomerToolbar({ resultCount, filterLookups }: CustomerToolbarP
     startTransition(() => {
       router.replace(`${pathname}?${params.toString()}`);
     });
-  };
-
-  const handleExport = async (format: "pdf" | "excel") => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("page");
-    params.delete("pageSize");
-    params.set("format", format);
-    params.set("scope", "current");
-
-    const result = await triggerDownloadFromUrl(`/admin/customers/export?${params.toString()}`);
-    if (result.error) throw new Error(result.error);
   };
 
   /* =========================================================
@@ -298,10 +285,6 @@ export function CustomerToolbar({ resultCount, filterLookups }: CustomerToolbarP
       params.delete(key);
     }
 
-    /*
-     * Reset pagination after
-     * removing a filter.
-     */
     params.set("page", "1");
 
     startTransition(() => {
@@ -316,14 +299,13 @@ export function CustomerToolbar({ resultCount, filterLookups }: CustomerToolbarP
   const clearAllFilters = () => {
     const params = new URLSearchParams(searchParams.toString());
 
-    (Object.keys(FILTER_LABEL_MAP) as (keyof CustomerFilters)[]).forEach((key) => params.delete(key));
+    (Object.keys(FILTER_LABEL_MAP) as (keyof CustomerFilters)[]).forEach((key) => {
+      params.delete(key);
+    });
 
     /*
-     * Important:
-     * Do NOT delete "archived".
-     *
-     * Archived view is a view state,
-     * not a customer filter.
+     * archived is intentionally preserved.
+     * It is a view state, not a filter.
      */
 
     params.set("page", "1");
@@ -334,68 +316,299 @@ export function CustomerToolbar({ resultCount, filterLookups }: CustomerToolbarP
   };
 
   /* =========================================================
+     EXPORT
+  ========================================================= */
+
+  const handleExport = async (format: "pdf" | "excel") => {
+    try {
+      const params = new URLSearchParams(searchParams.toString());
+
+      params.delete("page");
+
+      params.delete("pageSize");
+
+      params.set("format", format);
+
+      params.set("scope", "current");
+
+      const result = await triggerDownloadFromUrl(`/admin/customers/export?${params.toString()}`);
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      toast.success(format === "pdf" ? "PDF export started" : "Excel export started");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Unable to export customers");
+    }
+  };
+
+  /* =========================================================
+     REFRESH
+  ========================================================= */
+
+  const handleRefresh = () => {
+    router.refresh();
+
+    toast.success("Customer data refreshed");
+  };
+
+  /* =========================================================
      RENDER
   ========================================================= */
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-1 flex-wrap items-center gap-2">
-        {/* SEARCH */}
+    <>
+      <div
+        className={cn(
+          "flex min-w-0 flex-col gap-3 transition-opacity duration-200",
+          isPending && "opacity-75",
+        )}
+      >
+        {/* ===================================================
+            MAIN TOOLBAR
+        =================================================== */}
 
-        <div className="w-full max-w-xs">
-          <Input
-            aria-label="Search customers"
-            placeholder="Search by name, ID, email, phone..."
-            leftIcon={<Search className="size-4" />}
-            value={searchValue}
-            onChange={(event) => setSearchValue(event.target.value)}
-          />
+        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
+          {/* ===============================================
+              SEARCH
+          =============================================== */}
+
+          <div className="min-w-0 flex-1 lg:max-w-[430px] xl:max-w-[500px]">
+            <Input
+              aria-label="Search customers"
+              placeholder="Search name, ID, email or phone..."
+              leftIcon={<Search className="text-text-subtle size-4" aria-hidden="true" />}
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              className="h-10 rounded-lg text-[12px]"
+            />
+          </div>
+
+          {/* ===============================================
+              FILTER + SORT
+          =============================================== */}
+
+          <div className="scrollbar-hidden flex min-w-0 items-center gap-2 max-sm:overflow-x-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Filter className="size-3.5" aria-hidden="true" />}
+              onClick={() => setIsFilterOpen(true)}
+              className={cn(
+                "h-10 shrink-0 rounded-lg px-3 text-[11px] font-medium",
+
+                activeFilterCount > 0 && ["border-primary/30", "text-primary"],
+              )}
+            >
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="bg-primary/10 text-primary ml-1 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold tabular-nums">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+
+            <SortControl options={SORT_OPTIONS} value={sort} onChange={updateSort} />
+          </div>
+
+          {/* ===============================================
+              RIGHT SIDE
+          =============================================== */}
+
+          <div className="flex min-w-0 items-center gap-2 lg:ml-auto">
+            {/* =============================================
+                RESULT COUNT
+            ============================================= */}
+
+            <div className="mr-auto hidden shrink-0 items-center gap-2 sm:flex lg:mr-2">
+              <span
+                aria-hidden="true"
+                className="bg-success size-1.5 rounded-full shadow-[0_0_8px_rgba(50,183,105,0.4)]"
+              />
+
+              <span className="text-text-subtle text-[10px] whitespace-nowrap">
+                <strong className="text-text-primary font-semibold tabular-nums">
+                  {resultCount.toLocaleString()}
+                </strong>{" "}
+                {resultCount === 1 ? "customer" : "customers"}
+              </span>
+            </div>
+
+            {/* =============================================
+                ARCHIVE
+            ============================================= */}
+
+            <button
+              type="button"
+              onClick={toggleArchivedView}
+              aria-pressed={isArchivedView}
+              disabled={isPending}
+              className={cn(
+                "hidden h-10 shrink-0 items-center gap-2 rounded-lg border px-3 text-[10px] font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-50 sm:inline-flex",
+
+                isArchivedView
+                  ? ["border-warning/30", "text-warning"]
+                  : [
+                      "border-border",
+                      "text-text-muted",
+
+                      "hover:border-text-subtle/40",
+                      "hover:text-text-primary",
+                    ],
+              )}
+            >
+              <Archive className="size-3.5" aria-hidden="true" />
+
+              <span className="hidden xl:inline">{isArchivedView ? "Archived" : "Archive"}</span>
+
+              {isArchivedView && <Check className="size-3" aria-hidden="true" />}
+            </button>
+
+            {/* =============================================
+                MORE ACTIONS
+            ============================================= */}
+
+            <div className="relative z-[100]">
+              <Dropdown>
+                <DropdownTrigger>
+                  <IconButton
+                    aria-label="More customer actions"
+                    variant="outline"
+                    size="sm"
+                    className="size-10 rounded-lg"
+                  >
+                    <MoreHorizontal className="size-4" aria-hidden="true" />
+                  </IconButton>
+                </DropdownTrigger>
+
+                <DropdownContent
+                  align="end"
+                  className="border-border bg-card shadow-soft-lg z-[9999] w-64 overflow-hidden rounded-xl border p-1.5"
+                >
+                  {/* =====================================
+                      HEADER
+                  ===================================== */}
+
+                  <div className="px-2.5 pt-1.5 pb-2">
+                    <p className="text-text-muted text-[10px] font-semibold tracking-[0.08em] uppercase">
+                      Customer options
+                    </p>
+
+                    <p className="text-text-subtle mt-0.5 text-[9px] leading-4">
+                      Export and manage your workspace
+                    </p>
+                  </div>
+
+                  <MenuDivider />
+
+                  {/* =====================================
+                      EXPORT
+                  ===================================== */}
+
+                  <MenuSectionLabel>Export</MenuSectionLabel>
+
+                  <MenuAction
+                    icon={<FileText className="size-3.5" aria-hidden="true" />}
+                    iconClassName="
+                      bg-danger/[0.08]
+                      text-danger
+
+                      group-hover/menu:bg-danger/[0.12]
+                      group-hover/menu:text-danger
+                    "
+                    title="Download PDF"
+                    description="Customer report"
+                    trailing={
+                      <Download
+                        className="text-text-subtle group-hover/menu:text-danger size-3.5 transition-all duration-150 group-hover/menu:translate-y-0.5"
+                        aria-hidden="true"
+                      />
+                    }
+                    onClick={() => void handleExport("pdf")}
+                  />
+
+                  <MenuAction
+                    icon={<FileSpreadsheet className="size-3.5" aria-hidden="true" />}
+                    iconClassName="
+                      bg-success/[0.08]
+                      text-success
+
+                      group-hover/menu:bg-success/[0.12]
+                      group-hover/menu:text-success
+                    "
+                    title="Download Excel"
+                    description="Spreadsheet data"
+                    trailing={
+                      <Download
+                        className="text-text-subtle group-hover/menu:text-success size-3.5 transition-all duration-150 group-hover/menu:translate-y-0.5"
+                        aria-hidden="true"
+                      />
+                    }
+                    onClick={() => void handleExport("excel")}
+                  />
+
+                  <MenuDivider />
+
+                  {/* =====================================
+                      WORKSPACE
+                  ===================================== */}
+
+                  <MenuSectionLabel>Workspace</MenuSectionLabel>
+
+                  <MenuAction
+                    icon={
+                      <RefreshCw
+                        className="size-3.5 transition-transform duration-300 group-hover/menu:rotate-45"
+                        aria-hidden="true"
+                      />
+                    }
+                    title="Refresh data"
+                    description="Reload latest customers"
+                    onClick={handleRefresh}
+                  />
+
+                  {/* =====================================
+                      MOBILE ARCHIVE
+                  ===================================== */}
+
+                  <div className="sm:hidden">
+                    <MenuDivider />
+
+                    <MenuSectionLabel>Customers</MenuSectionLabel>
+
+                    <MenuAction
+                      icon={<Archive className="size-3.5" aria-hidden="true" />}
+                      title={isArchivedView ? "Viewing archived" : "View archived"}
+                      description={
+                        isArchivedView ? "Return to active customers" : "Browse archived customers"
+                      }
+                      active={isArchivedView}
+                      onClick={toggleArchivedView}
+                    />
+                  </div>
+                </DropdownContent>
+              </Dropdown>
+            </div>
+          </div>
         </div>
 
-        {/* FILTERS */}
+        {/* ===================================================
+            ACTIVE FILTERS
+        =================================================== */}
 
-        <Button
-          variant={activeFilterCount > 0 ? "outline" : "secondary"}
-          leftIcon={<Filter className="size-4" />}
-          onClick={() => setIsFilterOpen(true)}
-        >
-          Filters
-          {activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-        </Button>
-
-        {/* SORT */}
-
-        <SortControl options={SORT_OPTIONS} value={sort} onChange={updateSort} />
-
-        <ExportMenu onExportPDF={() => handleExport("pdf")} onExportExcel={() => handleExport("excel")} />
-
-        {/* ARCHIVED VIEW TOGGLE */}
-
-        <Button
-          variant={isArchivedView ? "outline" : "secondary"}
-          leftIcon={isArchivedView ? <RotateCcw className="size-4" /> : <Archive className="size-4" />}
-          onClick={toggleArchivedView}
-          disabled={isPending}
-        >
-          {isArchivedView ? "Active Customers" : "Archived"}
-        </Button>
-
-        {/* RESULT COUNT */}
-
-        <span className={cn("text-body-sm text-text-muted", isPending && "opacity-50")}>
-          {resultCount} {resultCount === 1 ? "customer" : "customers"}
-        </span>
+        {activeFilterCount > 0 && (
+          <div className="border-border/70 border-t pt-3">
+            <FilterBar activeFilters={activeChips} onRemoveFilter={removeFilter} onClearAll={clearAllFilters}>
+              {null}
+            </FilterBar>
+          </div>
+        )}
       </div>
 
-      {/* ACTIVE FILTER CHIPS */}
-
-      {activeChips.length > 0 && (
-        <FilterBar activeFilters={activeChips} onRemoveFilter={removeFilter} onClearAll={clearAllFilters}>
-          {null}
-        </FilterBar>
-      )}
-
-      {/* FILTER DRAWER */}
+      {/* =====================================================
+          FILTER DRAWER
+      ===================================================== */}
 
       <CustomerFilterDrawer
         isOpen={isFilterOpen}
@@ -405,6 +618,105 @@ export function CustomerToolbar({ resultCount, filterLookups }: CustomerToolbarP
         onApply={applyFilters}
         lookups={filterLookups}
       />
+    </>
+  );
+}
+
+/* =========================================================
+   DROPDOWN ACTION
+========================================================= */
+
+interface MenuActionProps {
+  icon: ReactNode;
+
+  title: string;
+
+  description?: string;
+
+  trailing?: ReactNode;
+
+  iconClassName?: string;
+
+  active?: boolean;
+
+  onClick: () => void;
+}
+
+function MenuAction({
+  icon,
+  title,
+  description,
+  trailing,
+  iconClassName,
+  active = false,
+  onClick,
+}: MenuActionProps) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={cn(
+        "group/menu hover:bg-card-hover flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors duration-150",
+
+        active && "bg-warning/[0.06]",
+      )}
+    >
+      {/* ICON */}
+
+      <span
+        className={cn(
+          "bg-surface text-text-muted group-hover/menu:text-primary flex size-8 shrink-0 items-center justify-center rounded-md transition-colors duration-150",
+
+          iconClassName,
+
+          active && ["bg-warning/[0.08]", "text-warning", "group-hover/menu:text-warning"],
+        )}
+      >
+        {icon}
+      </span>
+
+      {/* CONTENT */}
+
+      <span className="min-w-0 flex-1">
+        <span
+          className={cn(
+            "text-text-primary block truncate text-[11px] font-medium",
+
+            active && "text-warning",
+          )}
+        >
+          {title}
+        </span>
+
+        {description && (
+          <span className="text-text-subtle mt-0.5 block truncate text-[9px] leading-3">{description}</span>
+        )}
+      </span>
+
+      {/* TRAILING */}
+
+      {trailing && <span className="flex shrink-0 items-center justify-center">{trailing}</span>}
+    </button>
+  );
+}
+
+/* =========================================================
+   MENU SECTION LABEL
+========================================================= */
+
+function MenuSectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <div className="px-2.5 pt-2 pb-1">
+      <p className="text-text-subtle text-[9px] font-semibold tracking-[0.08em] uppercase">{children}</p>
     </div>
   );
+}
+
+/* =========================================================
+   MENU DIVIDER
+========================================================= */
+
+function MenuDivider() {
+  return <div aria-hidden="true" className="bg-border/70 my-1 h-px" />;
 }

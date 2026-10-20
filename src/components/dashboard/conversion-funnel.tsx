@@ -83,7 +83,7 @@ export function ConversionFunnel() {
   const overallConversion = totalLeads > 0 ? (sold / totalLeads) * 100 : 0;
 
   return (
-    <Card variant="elevated" padding="sm" className="group relative flex h-full flex-col overflow-hidden">
+    <Card variant="flat" padding="sm" className="group relative flex h-full flex-col overflow-hidden">
       {/* =====================================================
           AMBIENT BACKGROUND
       ===================================================== */}

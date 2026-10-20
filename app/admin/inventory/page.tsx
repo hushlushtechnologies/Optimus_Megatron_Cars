@@ -42,7 +42,7 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-h1">Inventory</h1>
+          <h1 className="text-h3">Inventory</h1>
           <p className="text-body-sm text-text-muted">
             Manage every vehicle across all Optimus Megatron Cars locations.
           </p>

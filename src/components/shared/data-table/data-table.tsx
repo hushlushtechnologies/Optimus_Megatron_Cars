@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type CSSProperties, type ReactNode } from "react";
+import { useId, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
 
 import {
   useReactTable,
@@ -39,6 +39,8 @@ import { ArrowUp, ArrowDown, ArrowUpDown, GripVertical } from "lucide-react";
 import { Skeleton } from "@/src/components/ui/skeleton";
 import { cn } from "@/src/lib/utils/cn";
 
+import { TableScrollControls } from "@/src/components/shared/data-table/table-scroll-controls";
+
 /* =========================================================
    TYPES
 ========================================================= */
@@ -48,7 +50,6 @@ interface DataTableProps<TData> {
   data: TData[];
 
   isLoading?: boolean;
-
   emptyState?: ReactNode;
 
   getRowId?: (row: TData) => string;
@@ -56,19 +57,15 @@ interface DataTableProps<TData> {
   enableRowSelection?: boolean;
 
   rowSelection?: RowSelectionState;
-
   onRowSelectionChange?: (selection: RowSelectionState) => void;
 
   sorting?: SortingState;
-
   onSortingChange?: (sorting: SortingState) => void;
 
   columnVisibility?: VisibilityState;
-
   onColumnVisibilityChange?: (visibility: VisibilityState) => void;
 
   columnOrder?: ColumnOrderState;
-
   onColumnOrderChange?: (order: ColumnOrderState) => void;
 
   enableColumnResizing?: boolean;
@@ -81,19 +78,6 @@ interface DataTableProps<TData> {
 ========================================================= */
 
 export function DataTable<TData>(props: DataTableProps<TData>) {
-  /*
-   * HYDRATION FIX
-   *
-   * dnd-kit generates runtime accessibility IDs.
-   * Your column preferences can also be different between
-   * the server render and the first browser render.
-   *
-   * Because of that, we mount the existing interactive
-   * table only after React hydration has completed.
-   *
-   * UI is unchanged.
-   */
-
   return <DataTableContent {...props} />;
 }
 
@@ -104,7 +88,7 @@ export function DataTable<TData>(props: DataTableProps<TData>) {
 function DataTableContent<TData>({
   columns,
   data,
-  isLoading,
+  isLoading = false,
   emptyState,
   getRowId,
   enableRowSelection = false,
@@ -120,7 +104,17 @@ function DataTableContent<TData>({
   ariaLabel,
 }: DataTableProps<TData>) {
   /* =======================================================
-     DND
+     REFS / IDS
+  ======================================================= */
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const generatedId = useId();
+
+  const dndId = `data-table-dnd-${generatedId}`;
+
+  /* =======================================================
+     DND SENSORS
   ======================================================= */
 
   const sensors = useSensors(
@@ -136,15 +130,15 @@ function DataTableContent<TData>({
   );
 
   /* =======================================================
-     TABLE
+     TANSTACK TABLE
   ======================================================= */
+
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
 
     getCoreRowModel: getCoreRowModel(),
-
     getSortedRowModel: getSortedRowModel(),
 
     getRowId,
@@ -152,33 +146,16 @@ function DataTableContent<TData>({
     enableRowSelection,
 
     columnResizeMode: "onChange",
-
     enableColumnResizing,
 
     state: {
-      ...(rowSelection !== undefined
-        ? {
-            rowSelection,
-          }
-        : {}),
+      ...(rowSelection !== undefined ? { rowSelection } : {}),
 
-      ...(sorting !== undefined
-        ? {
-            sorting,
-          }
-        : {}),
+      ...(sorting !== undefined ? { sorting } : {}),
 
-      ...(columnVisibility !== undefined
-        ? {
-            columnVisibility,
-          }
-        : {}),
+      ...(columnVisibility !== undefined ? { columnVisibility } : {}),
 
-      ...(columnOrder !== undefined
-        ? {
-            columnOrder,
-          }
-        : {}),
+      ...(columnOrder !== undefined ? { columnOrder } : {}),
     },
 
     /* =====================================================
@@ -231,18 +208,30 @@ function DataTableContent<TData>({
   });
 
   /* =======================================================
-     DRAGGABLE IDS
+     VISIBLE COLUMNS
   ======================================================= */
 
-  const draggableIds = useMemo(
-    () => table.getVisibleLeafColumns().map((column) => column.id),
+  const visibleColumns = table.getVisibleLeafColumns();
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [table, columnOrder, columnVisibility],
+  const draggableIds = visibleColumns.map((column) => column.id);
+
+  /* =======================================================
+     TABLE WIDTH
+  ======================================================= */
+
+  const tableWidth = table.getTotalSize();
+
+  /* =======================================================
+     SCROLL CONTROLS KEY
+  ======================================================= */
+
+  const scrollContentKey = useMemo(
+    () => [columnOrder?.join(",") ?? "", JSON.stringify(columnVisibility ?? {}), tableWidth].join(":"),
+    [columnOrder, columnVisibility, tableWidth],
   );
 
   /* =======================================================
-     DRAG END
+     COLUMN DRAG END
   ======================================================= */
 
   function handleDragEnd(event: DragEndEvent) {
@@ -282,76 +271,86 @@ function DataTableContent<TData>({
     return <>{emptyState}</>;
   }
 
-  const headerRow = table.getHeaderGroups()[0];
+  /* =======================================================
+     HEADER GROUP
+  ======================================================= */
+
+  const headerGroups = table.getHeaderGroups();
 
   /* =======================================================
      UI
-     EXACT SAME UI AS YOUR CURRENT COMPONENT
   ======================================================= */
 
   return (
-    <div className="surface-card overflow-hidden">
+    <div className="surface-card min-w-0 overflow-hidden">
+      {/* ===================================================
+          HORIZONTAL SCROLL AREA
+      =================================================== */}
+
       <div
+        ref={scrollRef}
         role="region"
         aria-label={ariaLabel ?? "Data table"}
         tabIndex={0}
-        className="scrollbar-hidden focus-visible:ring-primary overflow-x-auto overscroll-x-contain focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset"
+        className={cn(
+          "scrollbar-hidden",
+          "min-w-0 overflow-x-auto overscroll-x-contain",
+          "focus-visible:outline-none",
+          "focus-visible:ring-2",
+          "focus-visible:ring-inset",
+          "focus-visible:ring-primary",
+        )}
       >
-        {/*
-          IMPORTANT:
-
-          DndContext stays around the whole table.
-
-          Do not move this inside <thead> or <tr>.
-        */}
-
-        <DndContext
-          id="inventory-data-table-dnd"
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
+        <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <table
             className="border-collapse text-left"
             style={{
-              width: table.getTotalSize(),
+              width: tableWidth,
             }}
           >
-            {/* ============================================
+            {/* =============================================
                 TABLE HEADER
-            ============================================ */}
+            ============================================= */}
 
             <thead className="bg-card sticky top-0 z-10">
               <SortableContext items={draggableIds} strategy={horizontalListSortingStrategy}>
-                <tr className="border-border border-b">
-                  {headerRow?.headers.map((header) => (
-                    <DraggableHeader
-                      key={header.id}
-                      header={header}
-                      draggable={
-                        !!onColumnOrderChange &&
-                        header.column.id !== "select" &&
-                        header.column.id !== "actions"
-                      }
-                      enableColumnResizing={enableColumnResizing}
-                    />
-                  ))}
-                </tr>
+                {headerGroups.map((headerGroup) => (
+                  <tr key={headerGroup.id} className="border-border border-b">
+                    {headerGroup.headers.map((header) => (
+                      <DraggableHeader
+                        key={header.id}
+                        header={header}
+                        draggable={
+                          !!onColumnOrderChange &&
+                          header.column.id !== "select" &&
+                          header.column.id !== "actions"
+                        }
+                        enableColumnResizing={enableColumnResizing}
+                      />
+                    ))}
+                  </tr>
+                ))}
               </SortableContext>
             </thead>
 
-            {/* ============================================
+            {/* =============================================
                 TABLE BODY
-            ============================================ */}
+            ============================================= */}
 
             <tbody>
               {isLoading
                 ? Array.from({
                     length: 6,
-                  }).map((_, i) => (
-                    <tr key={i} className="border-border border-b last:border-0">
-                      {columns.map((_, j) => (
-                        <td key={j} className="px-4 py-3">
+                  }).map((_, rowIndex) => (
+                    <tr key={`skeleton-${rowIndex}`} className="border-border border-b last:border-0">
+                      {visibleColumns.map((column) => (
+                        <td
+                          key={column.id}
+                          style={{
+                            width: column.getSize(),
+                          }}
+                          className="px-4 py-3"
+                        >
                           <Skeleton className="h-4 w-full max-w-32" />
                         </td>
                       ))}
@@ -363,7 +362,6 @@ function DataTableContent<TData>({
                       data-state={row.getIsSelected() ? "selected" : undefined}
                       className={cn(
                         `border-border hover:bg-card-hover border-b transition-colors last:border-0`,
-
                         row.getIsSelected() && "bg-primary/5",
                       )}
                     >
@@ -375,11 +373,7 @@ function DataTableContent<TData>({
                           }}
                           className="text-body-sm text-text-primary px-4 py-3"
                         >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-
-                            cell.getContext(),
-                          )}
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}
                     </tr>
@@ -388,6 +382,12 @@ function DataTableContent<TData>({
           </table>
         </DndContext>
       </div>
+
+      {/* ===================================================
+          HORIZONTAL SCROLL NAVIGATION
+      =================================================== */}
+
+      <TableScrollControls scrollRef={scrollRef} contentKey={scrollContentKey} />
     </div>
   );
 }
@@ -402,27 +402,21 @@ function DraggableHeader<TData>({
   enableColumnResizing,
 }: {
   header: Header<TData, unknown>;
-
   draggable: boolean;
-
   enableColumnResizing: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: header.column.id,
-
     disabled: !draggable,
   });
 
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
-
     transition,
-
     width: header.getSize(),
-
     opacity: isDragging ? 0.6 : 1,
-
     position: "relative",
+    zIndex: isDragging ? 20 : undefined,
   };
 
   const canSort = header.column.getCanSort();
@@ -430,7 +424,7 @@ function DraggableHeader<TData>({
   const sortDir = header.column.getIsSorted();
 
   /* =======================================================
-     HEADER LABEL FOR ACCESSIBILITY
+     ACCESSIBLE HEADER LABEL
   ======================================================= */
 
   const headerValue = header.column.columnDef.header;
@@ -438,49 +432,45 @@ function DraggableHeader<TData>({
   const headerLabel =
     typeof headerValue === "string"
       ? headerValue
-      : header.column.id === "select" || header.column.id === "actions" || header.column.id === "image"
+      : ["select", "actions", "image"].includes(header.column.id)
         ? ""
         : header.column.id.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
 
   return (
     <th ref={setNodeRef} style={style} scope="col" className="text-label px-4 py-3 whitespace-nowrap">
       <div className="flex items-center gap-1.5">
-        {/* ================================================
+        {/* ===============================================
             DRAG HANDLE
-        ================================================ */}
+        =============================================== */}
 
         {draggable && (
           <button
             type="button"
             aria-label={
               headerLabel
-                ? `Reorder ${headerLabel} column. Press Space to pick up, then use Arrow keys to move, then Space again to drop.`
-                : "Reorder column. Press Space to pick up, then use Arrow keys to move, then Space again to drop."
+                ? `Reorder ${headerLabel} column. Press Space to pick up, use Arrow keys to move, then Space to drop.`
+                : "Reorder column. Press Space to pick up, use Arrow keys to move, then Space to drop."
             }
-            title="Drag to reorder, or press Space then use arrow keys"
+            title="Drag to reorder, or use keyboard"
             {...attributes}
             {...listeners}
-            className="text-text-subtle hover:text-text-muted cursor-grab touch-none active:cursor-grabbing"
+            className="text-text-subtle hover:text-text-muted cursor-grab touch-none transition-colors active:cursor-grabbing"
           >
             <GripVertical className="size-3.5" aria-hidden="true" />
           </button>
         )}
 
-        {/* ================================================
+        {/* ===============================================
             SORTABLE HEADER
-        ================================================ */}
+        =============================================== */}
 
         {header.isPlaceholder ? null : canSort ? (
           <button
             type="button"
             onClick={header.column.getToggleSortingHandler()}
-            className="text-label hover:text-text-primary flex items-center gap-1"
+            className="text-label hover:text-text-primary flex items-center gap-1 transition-colors"
           >
-            {flexRender(
-              header.column.columnDef.header,
-
-              header.getContext(),
-            )}
+            {flexRender(header.column.columnDef.header, header.getContext())}
 
             {sortDir === "asc" ? (
               <ArrowUp className="size-3" aria-hidden="true" />
@@ -491,17 +481,13 @@ function DraggableHeader<TData>({
             )}
           </button>
         ) : (
-          flexRender(
-            header.column.columnDef.header,
-
-            header.getContext(),
-          )
+          flexRender(header.column.columnDef.header, header.getContext())
         )}
       </div>
 
-      {/* ================================================
+      {/* ===============================================
           COLUMN RESIZE HANDLE
-      ================================================ */}
+      =============================================== */}
 
       {enableColumnResizing && header.column.getCanResize() && (
         <div
@@ -509,7 +495,6 @@ function DraggableHeader<TData>({
           onTouchStart={header.getResizeHandler()}
           className={cn(
             `hover:bg-primary/40 absolute top-0 right-0 h-full w-1 cursor-col-resize touch-none select-none`,
-
             header.column.getIsResizing() && "bg-primary",
           )}
         />
@@ -527,6 +512,7 @@ export function createSelectionColumn<TData>(): ColumnDef<TData, unknown> {
     id: "select",
     size: 40,
     enableResizing: false,
+
     header: ({ table }) => (
       <label className="relative inline-flex size-4 cursor-pointer items-center justify-center before:absolute before:-inset-2.5 before:content-['']">
         <input
@@ -534,13 +520,16 @@ export function createSelectionColumn<TData>(): ColumnDef<TData, unknown> {
           aria-label="Select all rows"
           checked={table.getIsAllRowsSelected()}
           ref={(el) => {
-            if (el) el.indeterminate = table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected();
+            if (el) {
+              el.indeterminate = table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected();
+            }
           }}
           onChange={table.getToggleAllRowsSelectedHandler()}
           className="border-border accent-primary size-4 rounded"
         />
       </label>
     ),
+
     cell: ({ row }) => (
       <label className="relative inline-flex size-4 cursor-pointer items-center justify-center before:absolute before:-inset-2.5 before:content-['']">
         <input
