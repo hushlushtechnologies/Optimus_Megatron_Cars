@@ -21,7 +21,12 @@ export function SortControl({ options, value, onChange }: SortControlProps) {
   return (
     <Dropdown>
       <DropdownTrigger>
-        <Button variant="outline" size="sm" leftIcon={<ArrowDownUp className="size-4" />}>
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={`Sort by: ${current?.label ?? "default"}`}
+          leftIcon={<ArrowDownUp className="size-4" aria-hidden="true" />}
+        >
           {current?.label ?? "Sort"}
         </Button>
       </DropdownTrigger>
@@ -33,7 +38,7 @@ export function SortControl({ options, value, onChange }: SortControlProps) {
             role="menuitemradio"
             aria-checked={option.value === value}
             onClick={() => onChange(option.value)}
-            className="text-body-sm text-text-primary hover:bg-card-hover flex w-full items-center justify-between px-4 py-2 text-left"
+            className="text-body-sm text-text-primary hover:bg-card-hover flex w-full items-center justify-between px-4 py-2.5 text-left"
           >
             {option.label}
             {option.value === value && <Check className="text-primary size-4" aria-hidden="true" />}

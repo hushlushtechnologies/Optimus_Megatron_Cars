@@ -1,52 +1,77 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function visibleFocusables(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) => element.getClientRects().length > 0,
+  );
+}
 
 export function useFocusTrap(
   containerRef: React.RefObject<HTMLElement | null>,
   isActive: boolean,
   onEscape?: () => void,
 ) {
+  // The newest onEscape is kept in a ref, so a parent passing a new function on
+  // every render doesn't restart the trap (which would steal focus mid-typing).
+  const escapeRef = useRef(onEscape);
   useEffect(() => {
-    if (!isActive || !containerRef.current) return;
+    escapeRef.current = onEscape;
+  });
 
+  useEffect(() => {
     const container = containerRef.current;
+    if (!isActive || !container) return;
+
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
-    const focusables = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-    focusables[0]?.focus();
+    // Only move focus in if it isn't already inside (a panel may place it itself).
+    if (!container.contains(document.activeElement)) {
+      visibleFocusables(container)[0]?.focus();
+    }
 
-    function handleKeyDown(event: KeyboardEvent) {
+    const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onEscape?.();
+        // An open dropdown (such as the vehicle search) closes itself first.
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && active.getAttribute("aria-expanded") === "true") return;
+        escapeRef.current?.();
         return;
       }
 
       if (event.key !== "Tab") return;
 
-      const focusableEls = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-      if (focusableEls.length === 0) return;
+      const focusables = visibleFocusables(container);
+      if (focusables.length === 0) {
+        event.preventDefault();
+        return;
+      }
 
-      const first = focusableEls[0];
-      const last = focusableEls[focusableEls.length - 1];
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
 
-      if (event.shiftKey && document.activeElement === first) {
+      if (!container.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && active === first) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && active === last) {
         event.preventDefault();
         first.focus();
       }
-    }
+    };
 
     container.addEventListener("keydown", handleKeyDown);
 
     return () => {
       container.removeEventListener("keydown", handleKeyDown);
-      previouslyFocused?.focus();
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
     };
-  }, [isActive, containerRef, onEscape]);
+  }, [isActive, containerRef]);
 }

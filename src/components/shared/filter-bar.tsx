@@ -23,17 +23,17 @@ export function FilterBar({
 }: FilterBarProps) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">{children}</div>
+      {children ? <div className="flex flex-wrap items-center gap-2">{children}</div> : null}
 
       {(activeFilters.length > 0 || resultCount !== undefined) && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Active filters" className="flex flex-wrap items-center gap-2">
           {resultCount !== undefined && (
             <span className="text-body-sm text-text-muted">{resultCount} results</span>
           )}
           {activeFilters.map((filter) => (
             <span
               key={filter.key}
-              className="border-border bg-card-hover text-body-sm text-text-primary inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1"
+              className="border-border bg-card-hover text-body-sm text-text-primary inline-flex items-center gap-1 rounded-full border py-0.5 pr-0.5 pl-3"
             >
               {filter.label}
               {onRemoveFilter && (
@@ -41,9 +41,9 @@ export function FilterBar({
                   type="button"
                   aria-label={`Remove filter: ${filter.label}`}
                   onClick={() => onRemoveFilter(filter.key)}
-                  className="text-text-muted hover:text-text-primary"
+                  className="text-text-muted hover:text-text-primary hover:bg-card inline-flex size-7 items-center justify-center rounded-full transition-colors"
                 >
-                  <X className="size-3" />
+                  <X className="size-3.5" aria-hidden="true" />
                 </button>
               )}
             </span>

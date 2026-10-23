@@ -42,7 +42,7 @@ export function getTestDriveColumns({
   permissions,
 }: TestDriveColumnActions): ColumnDef<TestDriveListRow, unknown>[] {
   const columns = [
-    createSelectionColumn<TestDriveListRow>(),
+    createSelectionColumn<TestDriveListRow>((row) => row.test_drive_number),
 
     columnHelper.accessor("test_drive_number", {
       id: "test_drive_number",

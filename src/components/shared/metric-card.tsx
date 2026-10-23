@@ -28,7 +28,8 @@ export interface MetricCardProps {
 
   prefix?: string;
   suffix?: string;
-
+  /** Text shown when there is no change figure. Defaults to the inventory wording. */
+  caption?: string;
   /**
    * Pass a rendered icon element.
    *
@@ -202,6 +203,7 @@ export function MetricCard({
   change,
   changeTone,
   comparisonLabel = "vs yesterday",
+  caption = "Current inventory",
   changeIsPercentage = true,
 
   trend,
@@ -448,7 +450,7 @@ export function MetricCard({
               </span>
             </>
           ) : (
-            <span className="text-text-subtle truncate text-[10px]">Current inventory</span>
+            <span className="text-text-subtle truncate text-[10px]">{caption}</span>
           )}
         </div>
       </div>

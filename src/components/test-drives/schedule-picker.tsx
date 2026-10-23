@@ -289,7 +289,7 @@ export function SchedulePicker({
                     title={hint?.label}
                     onClick={() => select(iso)}
                     className={cn(
-                      "text-body-sm focus-visible:ring-primary relative mx-auto flex size-9 items-center justify-center rounded-md tabular-nums transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none",
+                      "text-body-sm focus-visible:ring-primary relative mx-auto flex size-9 h-10 w-full max-w-10 items-center justify-center rounded-md tabular-nums transition-colors duration-150 focus-visible:ring-2 focus-visible:outline-none motion-reduce:transition-none",
                       !inMonth && "text-text-subtle",
                       inMonth &&
                         !disabled &&

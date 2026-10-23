@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { TestDrivePermissions } from "@/src/lib/utils/test-drive-permissions";
@@ -23,11 +23,18 @@ import { Skeleton } from "@/src/components/ui/skeleton";
 import { Tooltip } from "@/src/components/ui/tooltip";
 import { TestDriveMetricsHelp } from "@/src/components/test-drives/test-drive-metrics-help";
 import { TestDriveTable } from "@/src/components/test-drives/test-drive-table";
+import { TestDriveToolbar } from "@/src/components/test-drives/test-drive-toolbar";
 import { TestDriveCalendar } from "@/src/components/test-drives/calendar/test-drive-calendar";
 import { useTestDriveView, type TestDriveView } from "@/src/hooks/use-test-drive-view";
 import { EMPTY_TEST_DRIVE_METRICS, type TestDriveMetrics } from "@/src/lib/utils/test-drive-metrics";
 import type { TestDriveCalendarParams } from "@/src/lib/utils/test-drive-calendar";
 import type { TestDriveCalendarFilterOptions, TestDriveListRow } from "@/src/lib/types/test-drive";
+import type { TestDriveFilterLookups } from "@/src/lib/supabase/test-drive-filter-lookups";
+import { parseTestDriveListParams } from "@/src/lib/utils/test-drive-list-params";
+import {
+  TEST_DRIVE_FILTER_PARAM_KEYS,
+  countActiveTestDriveFilters,
+} from "@/src/lib/utils/test-drive-list-filters";
 import { Button } from "@/src/components/ui/button";
 
 interface TestDrivesPageClientProps {
@@ -39,6 +46,9 @@ interface TestDrivesPageClientProps {
   tableLoadFailed: boolean;
   page: number;
   pageSize: number;
+  /** Options for the table's filter drawer. */
+  filterLookups: TestDriveFilterLookups;
+  filterLookupsFailed: boolean;
   /** null while the calendar's data isn't loaded (table view, or mid-switch). */
   calendarData: { rows: TestDriveListRow[]; truncated: boolean } | null;
   calendarLoadFailed: boolean;
@@ -77,6 +87,8 @@ export function TestDrivesPageClient({
   tableLoadFailed,
   page,
   pageSize,
+  filterLookups,
+  filterLookupsFailed,
   calendarData,
   calendarLoadFailed,
   calendarParams,
@@ -90,12 +102,39 @@ export function TestDrivesPageClient({
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const m = metrics ?? EMPTY_TEST_DRIVE_METRICS;
 
+  const listQuery = useMemo(
+    () => parseTestDriveListParams(Object.fromEntries(searchParams.entries())),
+    [searchParams],
+  );
+  const hasActiveQuery = listQuery.search !== "" || countActiveTestDriveFilters(listQuery.filters) > 0;
+
+  // A different search, filter or sort means a different list, so earlier ticks no longer apply.
+  const queryKey = (() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("page");
+    params.delete("pageSize");
+    return params.toString();
+  })();
+  const [selectionKey, setSelectionKey] = useState(queryKey);
+  if (selectionKey !== queryKey) {
+    setSelectionKey(queryKey);
+    setRowSelection({});
+  }
+
   const updateParams = (changes: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString());
     Object.entries(changes).forEach(([key, value]) => {
       if (value) params.set(key, value);
       else params.delete(key);
     });
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
+  const clearSearchAndFilters = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("q");
+    TEST_DRIVE_FILTER_PARAM_KEYS.forEach((key) => params.delete(key));
+    params.set("page", "1");
     router.replace(`${pathname}?${params.toString()}`);
   };
 
@@ -223,6 +262,16 @@ export function TestDrivesPageClient({
         </div>
       </div>
 
+      {/* The search and filters belong to the table. The calendar keeps its own. */}
+      {view === "table" && (
+        <TestDriveToolbar
+          resultCount={tableData?.totalCount ?? 0}
+          lookups={filterLookups}
+          lookupsFailed={filterLookupsFailed}
+          canExport={permissions.export}
+        />
+      )}
+
       <div
         className={isPending ? "opacity-60 transition-opacity" : "transition-opacity"}
         aria-busy={isPending}
@@ -231,6 +280,7 @@ export function TestDrivesPageClient({
           tableData ? (
             <TestDriveTable
               rows={tableData.rows}
+              archivedView={listQuery.archived}
               totalCount={tableData.totalCount}
               page={page}
               permissions={permissions}
@@ -239,6 +289,10 @@ export function TestDrivesPageClient({
               onRowSelectionChange={setRowSelection}
               onPageChange={(p) => updateParams({ page: String(p) })}
               onPageSizeChange={(size) => updateParams({ pageSize: String(size), page: "1" })}
+              hasActiveQuery={hasActiveQuery}
+              onClearQuery={clearSearchAndFilters}
+
+              staff={filterLookups.staff}
             />
           ) : tableLoadFailed ? (
             <LoadFailed what="test drives" />

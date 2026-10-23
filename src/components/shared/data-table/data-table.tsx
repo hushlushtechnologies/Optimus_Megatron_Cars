@@ -437,7 +437,15 @@ function DraggableHeader<TData>({
         : header.column.id.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
 
   return (
-    <th ref={setNodeRef} style={style} scope="col" className="text-label px-4 py-3 whitespace-nowrap">
+    <th
+      ref={setNodeRef}
+      style={style}
+      scope="col"
+      aria-sort={
+        sortDir === "asc" ? "ascending" : sortDir === "desc" ? "descending" : canSort ? "none" : undefined
+      }
+      className="text-label px-4 py-3 whitespace-nowrap"
+    >
       <div className="flex items-center gap-1.5">
         {/* ===============================================
             DRAG HANDLE
@@ -507,7 +515,9 @@ function DraggableHeader<TData>({
    SELECTION COLUMN
 ========================================================= */
 
-export function createSelectionColumn<TData>(): ColumnDef<TData, unknown> {
+export function createSelectionColumn<TData>(
+  getRowLabel?: (row: TData) => string,
+): ColumnDef<TData, unknown> {
   return {
     id: "select",
     size: 40,
@@ -534,7 +544,7 @@ export function createSelectionColumn<TData>(): ColumnDef<TData, unknown> {
       <label className="relative inline-flex size-4 cursor-pointer items-center justify-center before:absolute before:-inset-2.5 before:content-['']">
         <input
           type="checkbox"
-          aria-label="Select row"
+          aria-label={getRowLabel ? `Select ${getRowLabel(row.original)}` : "Select row"}
           checked={row.getIsSelected()}
           onChange={row.getToggleSelectedHandler()}
           className="border-border accent-primary size-4 rounded"

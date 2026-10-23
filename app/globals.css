@@ -20,7 +20,7 @@
   --omc-border: #132140;
   --omc-text-primary: #f4f7fb;
   --omc-text-muted: #93c5fd;
-  --omc-text-subtle: #516a86;
+  --omc-text-subtle: #6f89a8;
   --omc-primary: #ebb811;
   --omc-primary-hover: #c7a35d;
   --omc-success: #32b769;
@@ -61,8 +61,8 @@
   --omc-border: #e4e8ef;
   --omc-surface: #d0ddf3;
   --omc-text-primary: #0b1220;
-  --omc-text-muted: #64748b;
-  --omc-text-subtle: #94a3b8;
+  --omc-text-muted: #526179;
+  --omc-text-subtle: #5f6f86;
   --omc-primary: #d6a212;
   --omc-primary-hover: #cca237;
   --omc-success: #32b769;
@@ -184,6 +184,14 @@
     line-height: 1.2;
     letter-spacing: -0.02em;
     font-weight: 600;
+  }
+
+  @media (max-width: 639px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea {
+      font-size: 16px;
+    }
   }
   .text-h2 {
     font-size: 1.5rem;

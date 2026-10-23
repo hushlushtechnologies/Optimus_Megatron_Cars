@@ -11,13 +11,14 @@ export const TEST_DRIVE_PERMISSION_KEYS = {
   cancel: "test_drives.cancel",
   checkIn: "test_drives.check_in",
   complete: "test_drives.complete",
+  export: "test_drives.export",
   host: "test_drives.host",
   settings: "test_drives.settings",
 } as const;
 
 /** The permissions that describe what the person looking at the screen can do. */
 export type TestDrivePermissionName =
-  "create" | "edit" | "reschedule" | "approve" | "assign" | "cancel" | "checkIn" | "complete";
+  "create" | "edit" | "reschedule" | "approve" | "assign" | "cancel" | "checkIn" | "complete" | "export";
 
 export type TestDrivePermissions = Record<TestDrivePermissionName, boolean>;
 
@@ -30,6 +31,7 @@ export const NO_TEST_DRIVE_PERMISSIONS: TestDrivePermissions = {
   cancel: false,
   checkIn: false,
   complete: false,
+  export: false,
 };
 
 export const TEST_DRIVE_PERMISSION_MESSAGES: Record<TestDrivePermissionName, string> = {
@@ -41,6 +43,7 @@ export const TEST_DRIVE_PERMISSION_MESSAGES: Record<TestDrivePermissionName, str
   cancel: "You don't have permission to cancel test drives.",
   checkIn: "You don't have permission to check customers in.",
   complete: "You don't have permission to complete test drives or mark no shows.",
+  export: "You don't have permission to export test drives.",
 };
 
 export function toTestDrivePermissions(keys: readonly string[]): TestDrivePermissions {
@@ -55,6 +58,7 @@ export function toTestDrivePermissions(keys: readonly string[]): TestDrivePermis
     cancel: granted.has(TEST_DRIVE_PERMISSION_KEYS.cancel),
     checkIn: granted.has(TEST_DRIVE_PERMISSION_KEYS.checkIn),
     complete: granted.has(TEST_DRIVE_PERMISSION_KEYS.complete),
+    export: granted.has(TEST_DRIVE_PERMISSION_KEYS.export),
   };
 }
 
