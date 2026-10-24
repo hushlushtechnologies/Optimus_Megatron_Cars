@@ -1,19 +1,40 @@
 "use client";
 
 import { SalesDealCard } from "@/src/components/sales/sales-deal-card";
+
 import { SalesStatusBadge, SALES_STATUS_META } from "@/src/components/sales/sales-status-badge";
+
 import { Button } from "@/src/components/ui/button";
-import { BOARD_COLUMN_LIMIT } from "@/src/lib/supabase/sales-list-queries";
+
 import type { SalesDealStatus } from "@/src/lib/types/sales";
+
 import type { SalesBoardColumn } from "@/src/lib/types/sales-list";
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 interface SalesBoardProps {
   columns: SalesBoardColumn[];
+
   onViewAll: (status: SalesDealStatus) => void;
 }
 
-/** Read-only for now. Moving a deal between columns arrives with the status workflow. */
+/* =========================================================
+   COMPONENT
+========================================================= */
+
+/**
+ * Read-only for now.
+ *
+ * Moving a deal between columns will arrive
+ * with the Sales status workflow.
+ */
 export function SalesBoard({ columns, onViewAll }: SalesBoardProps) {
+  /* =========================================================
+     EMPTY STATE
+  ========================================================= */
+
   if (columns.length === 0) {
     return (
       <p role="status" className="surface-card text-body-sm text-text-muted p-6 text-center">
@@ -22,6 +43,10 @@ export function SalesBoard({ columns, onViewAll }: SalesBoardProps) {
     );
   }
 
+  /* =========================================================
+     BOARD
+  ========================================================= */
+
   return (
     <div
       role="region"
@@ -29,39 +54,71 @@ export function SalesBoard({ columns, onViewAll }: SalesBoardProps) {
       tabIndex={0}
       className="scrollbar-hidden -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2"
     >
-      {columns.map((column) => (
-        <section
-          key={column.status}
-          aria-label={`${column.status}, ${column.total} deals`}
-          className="bg-card/40 border-border flex w-[290px] shrink-0 snap-start flex-col gap-3 rounded-xl border p-3"
-        >
-          <header className="flex items-center justify-between gap-2">
-            <SalesStatusBadge status={column.status} />
-            <span className="text-body-sm text-text-muted tabular-nums">{column.total}</span>
-          </header>
-          <p className="text-caption text-text-subtle -mt-1">
-            {SALES_STATUS_META[column.status].description}
-          </p>
+      {columns.map((column) => {
+        /*
+         * The server controls how many
+         * rows are returned per board column.
+         *
+         * Using rows.length here avoids
+         * importing BOARD_COLUMN_LIMIT from
+         * the server-only query module.
+         */
+        const visibleCount = column.rows.length;
 
-          {column.rows.length === 0 ? (
-            <p className="border-border text-caption text-text-subtle rounded-lg border border-dashed px-3 py-6 text-center">
-              No deals here
+        const hasMore = column.total > visibleCount;
+
+        return (
+          <section
+            key={column.status}
+            aria-label={`${column.status}, ${column.total} deals`}
+            className="bg-card/40 border-border flex w-[290px] shrink-0 snap-start flex-col gap-3 rounded-xl border p-3"
+          >
+            {/* ===========================================
+                  HEADER
+              =========================================== */}
+
+            <header className="flex items-center justify-between gap-2">
+              <SalesStatusBadge status={column.status} />
+
+              <span className="text-body-sm text-text-muted tabular-nums">{column.total}</span>
+            </header>
+
+            {/* ===========================================
+                  DESCRIPTION
+              =========================================== */}
+
+            <p className="text-caption text-text-subtle -mt-1">
+              {SALES_STATUS_META[column.status].description}
             </p>
-          ) : (
-            <ul className="flex flex-col gap-2.5">
-              {column.rows.map((row, index) => (
-                <SalesDealCard key={row.id} row={row} compact index={index} />
-              ))}
-            </ul>
-          )}
 
-          {column.total > BOARD_COLUMN_LIMIT && (
-            <Button variant="ghost" size="sm" onClick={() => onViewAll(column.status)}>
-              Showing {BOARD_COLUMN_LIMIT} of {column.total}. View all
-            </Button>
-          )}
-        </section>
-      ))}
+            {/* ===========================================
+                  DEALS
+              =========================================== */}
+
+            {visibleCount === 0 ? (
+              <p className="border-border text-caption text-text-subtle rounded-lg border border-dashed px-3 py-6 text-center">
+                No deals here
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2.5">
+                {column.rows.map((row, index) => (
+                  <SalesDealCard key={row.id} row={row} compact index={index} />
+                ))}
+              </ul>
+            )}
+
+            {/* ===========================================
+                  VIEW ALL
+              =========================================== */}
+
+            {hasMore && (
+              <Button variant="ghost" size="sm" onClick={() => onViewAll(column.status)}>
+                Showing {visibleCount} of {column.total}. View all
+              </Button>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }
